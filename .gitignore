@@ -8,6 +8,7 @@
 *.lst
 *.map
 *.sym
+.dep
 
 # Precompiled Headers
 *.gch
@@ -31,4 +32,3 @@
 *.app
 *.i*86
 *.x86_64
-*.hex
