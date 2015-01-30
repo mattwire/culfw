@@ -2,12 +2,19 @@ F_CPU = 8000000
 FORMAT = ihex
 OBJDIR = .
 
-SRC =           CUL.c\
+ARCH      = AVR8
+F_USB     = $(F_CPU)
+LUFA_PATH = ../../LUFA/LUFA
+LUFA_OPTS = -DUSE_LUFA_CONFIG_HEADER -IConfig/
+
+include $(LUFA_PATH)/Build/lufa_sources.mk
+
+SRC =           CUL.c						     \
 		../../clib/Descriptors.c                             \
 		../../clib/cc1100.c                                  \
 		../../clib/cc1101_pllcheck.c                         \
-		../../clib/cdcLUFA.c                                 \
 		../../clib/clock.c                                   \
+		../../clib/usb.c                                     \
 		../../clib/delay.c                                   \
 		../../clib/display.c                                 \
 		../../clib/stringfunc.c                              \
@@ -26,28 +33,10 @@ SRC =           CUL.c\
 		../../clib/ttydata.c                                 \
 		../../clib/spi.c                                     \
 		../../clib/memory.c                                  \
-		../../lufa/Drivers/USB/LowLevel/DevChapter9.c        \
-		../../lufa/Drivers/USB/LowLevel/Endpoint.c           \
-		../../lufa/Drivers/USB/LowLevel/Host.c               \
-		../../lufa/Drivers/USB/LowLevel/HostChapter9.c       \
-		../../lufa/Drivers/USB/LowLevel/LowLevel.c           \
-		../../lufa/Drivers/USB/LowLevel/Pipe.c               \
-		../../lufa/Drivers/USB/HighLevel/Events.c            \
-		../../lufa/Drivers/USB/HighLevel/USBInterrupt.c      \
-		../../lufa/Drivers/USB/HighLevel/USBTask.c           \
-		../../lufa/Drivers/USB/HighLevel/ConfigDescriptor.c  \
+		$(LUFA_SRC_USB_DEVICE) $(LUFA_SRC_USBCLASS_DEVICE)
 
-
-LUFA_OPTS  = -D USE_NONSTANDARD_DESCRIPTOR_NAMES
-LUFA_OPTS += -D NO_STREAM_CALLBACKS
-LUFA_OPTS += -D USB_DEVICE_ONLY
-LUFA_OPTS += -D FIXED_CONTROL_ENDPOINT_SIZE=8
-LUFA_OPTS += -D FIXED_NUM_CONFIGURATIONS=1
-LUFA_OPTS += -D USE_FLASH_DESCRIPTORS
-LUFA_OPTS += -D F_CLOCK=$(F_CPU)UL
-LUFA_OPTS += -D USE_STATIC_OPTIONS="(USB_DEVICE_OPT_FULLSPEED | USB_OPT_REG_ENABLED | USB_OPT_AUTO_PLL)"
 CFLAGS  = -D$(TARGET)
-CFLAGS += -DF_CPU=$(F_CPU)UL
+CFLAGS += -DF_CPU=$(F_CPU)UL -DF_USB=$(F_USB)UL -DF_CLOCK=$(F_CPU)UL
 CFLAGS += -DLUFA $(LUFA_OPTS)
 CFLAGS += -Os
 CFLAGS += -funsigned-char       #   12 Byte (shorter code)
@@ -61,7 +50,7 @@ CFLAGS += -Wall
 CFLAGS += -Wstrict-prototypes
 CFLAGS += -Wundef
 CFLAGS += -Wa,-adhlns=$(<:%.c=$(OBJDIR)/%.lst)
-CFLAGS += -I../../lufa -I../../clib
+CFLAGS += -I../../clib -I$(patsubst %/,%,$(LUFA_PATH))/..
 CFLAGS += -std=gnu99
 #CFLAGS += -Wunreachable-code
 GENDEPFLAGS = -MMD -MP -MF .dep/$(@F).d

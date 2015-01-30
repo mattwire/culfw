@@ -8,9 +8,6 @@
 #include "fncollection.h"
 #include "cc1100.h"
 #include "../version.h"
-#ifdef HAS_USB
-#include <Drivers/USB/USB.h>
-#endif
 #include "clock.h"
 #include "mysleep.h"
 #include "fswrapper.h"
@@ -282,7 +279,7 @@ prepare_boot(char *in)
                              // first.
                              
 #ifdef HAS_USB
-  USB_ShutDown();            // ??? Needed?
+  //  USB_ShutDown();            // ??? Needed?
 #endif
 #ifdef HAS_FS
   fs_sync(&fs);              // Sync the filesystem

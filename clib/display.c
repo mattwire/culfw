@@ -2,7 +2,7 @@
 #include "display.h"
 #include "ringbuffer.h"
 #ifdef HAS_USB
-#include "cdc.h"
+#include "usb.h"
 #else
 #include "serial.h"
 #endif
@@ -95,11 +95,11 @@ display_char(char data)
 
 #ifdef HAS_USB
   if(USB_IsConnected && (display_channel & DISPLAY_USB)) {
-    if(TTY_Tx_Buffer.nbytes >= TTY_BUFSIZE)
-      CDC_Task();
+    //    if(TTY_Tx_Buffer.nbytes >= TTY_BUFSIZE)
+    //      CDC_Task();
     rb_put(&TTY_Tx_Buffer, data);
-    if(data == '\n')
-      CDC_Task();
+    //    if(data == '\n')
+    //      CDC_Task();
     buffer_used();
   }
 #endif

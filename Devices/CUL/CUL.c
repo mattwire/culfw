@@ -13,11 +13,8 @@
 
 #include <string.h>
 
-#include <Drivers/USB/USB.h>     // USB Functionality
-
 #include "spi.h"
 #include "cc1100.h"
-#include "cdc.h"
 #include "clock.h"
 #include "delay.h"
 #include "display.h"
@@ -33,6 +30,9 @@
 
 #ifdef HAS_MEMFN
 #include "memory.h"		// getfreemem
+#endif
+#ifdef HAS_USB
+#include "usb.h"
 #endif
 #ifdef HAS_ASKSIN
 #include "rf_asksin.h"
@@ -157,7 +157,7 @@ main(void)
   led_init();
   spi_init();
   eeprom_init();
-  USB_Init();
+  usb_init();
   fht_init();
   tx_init();
   input_handle_func = analyze_ttydata;
@@ -171,8 +171,7 @@ main(void)
   LED_OFF();
 
   for(;;) {
-    USB_USBTask();
-    CDC_Task();
+    usb_task();
     RfAnalyze_Task();
     Minute_Task();
 #ifdef HAS_FASTRF
