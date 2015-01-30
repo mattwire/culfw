@@ -1,0 +1,165 @@
+M:CUR:Cur Menu:9f9afacfc
+S:Rooms:Rooms
+S:Control:Control
+S:Files:Files
+P243c3a3chouse2_58x60
+
+M:Rooms::88fddfccf
+<xmllist>:88fddfccf
+
+M:FS20-Plain:<11>:88fddfccf
+C:Toggle:F<13>12
+C:On:F<13>11
+C:Off:F<13>00
+C:Request Status:F$0000[11]
+
+M:FS20-Dim:<11>:88fddfccf
+C:Toggle:F<13>12
+C:On:F<13>11
+C:Off:F<13>00
+C:Dimup:F<13>13
+C:Dimdown:F<13>14
+C:Request Status:F$0000[11]
+
+M:CUL_EM:<11>:f88fcdfde
+C:Request Status:F$0000[11]
+
+M:CUL_WS:<11>:f88fcdfde
+C:Request Status:F$0000[11]
+
+M:FHT:<11>:f88fcdfde
+S:Desired:ftemp:02
+C:Request Status:F$0000[11]
+
+M:ftemp:<21> <11>:f88fcdfde
+C:12.0 C:F$<13>1A[21]
+C:12.5 C:F$<13>1B[21]
+C:13.0 C:F$<13>1C[21]
+C:13.5 C:F$<13>1B[21]
+C:14.0 C:F$<13>1C[21]
+C:14.5 C:F$<13>1D[21]
+C:15.0 C:F$<13>1E[21]
+C:15.5 C:F$<13>1F[21]
+C:16.0 C:F$<13>20[21]
+C:16.5 C:F$<13>21[21]
+C:17.0 C:F$<13>22[21]
+C:17.5 C:F$<13>23[21]
+C:18.0 C:F$<13>24[21]
+C:18.5 C:F$<13>25[21]
+C:19.0 C:F$<13>26[21]
+C:19.5 C:F$<13>27[21]
+C:20.0 C:F$<13>28[21]
+C:20.5 C:F$<13>29[21]
+C:21.0 C:F$<13>2A[21]
+C:21.5 C:F$<13>2B[21]
+C:22.0 C:F$<13>2C[21]
+C:22.5 C:F$<13>2D[21]
+C:23.0 C:F$<13>2E[21]
+C:23.5 C:F$<13>2F[21]
+C:24.0 C:F$<13>30[21]
+C:24.5 C:F$<13>31[21]
+C:25.0 C:F$<13>32[21]
+C:25.5 C:F$<13>33[21]
+
+M:Control::affbffcff
+C:FW Version:V
+S:Battery:Battery
+S:Sleep:Sleep
+S:Display:Display
+S:Radio:Radio
+S:Time:Time
+S:Initialize:Initialize
+
+M:Sleep::affbffcff
+C:10 sec:s0a
+C:30 sec:s1e
+C:60 sec:s3c
+C:2 min:s78
+C:4 min:sf0
+C:off:s00
+C:display off:dff00
+
+M:Display::affbffcff
+S:LED:LED
+C:Contrast +:dFFFFFEFF
+C:Contrast -:dFFFFFDFF
+C:Brightness +:dFFFFFFFE
+C:Brightness -:dFFFFFFFD
+
+M:LED::ffaffbffc
+C:off:l00
+C:on:l01
+C:blink:l02
+
+M:Radio::affbffcff
+S:Reception:Reception
+S:Xmit power +R:PARAMP
+S:Xmit power -R:PANORAMP
+C:CC1100 status:C35
+
+M:Reception::affbffcff
+C:Off:X00
+C:On:X01
+C:On+Debug:XA1
+C:On+SignalStr:X21
+
+M:PARAMP:With ramping:affbffcff
+C:-10 dBm:x00
+C: -5 dBm:x01
+C:  0 dBm:x02
+C:  5 dBm:x03
+C: 10 dBm:x04
+
+M:PANORAMP:W/O ramping:affbffcff
+C:-10 dBm:x05
+C: -5 dBm:x06
+C:  0 dBm:x07
+C:  5 dBm:x08
+C: 10 dBm:x09
+
+M:Time:<11>:affbffcff
+C:Uptime:t
+C:RTC date:c01
+C:RTC time:c02
+C:Request&Set:F$0100
+
+M:Initialize::affbffcff
+C:Factory reset:e
+C:Reboot:B00
+C:Bootloader:B01
+
+D:lampen_macro
+F80C200<13>
+F80C201<13>
+F80C202<13>
+
+M:Sorry::aaaccceee
+C:Not yet
+C:implemented
+
+M:Files::affbffcff
+C:MENU:MMENU
+C:Syslog.0:MSyslog.0
+C:Syslog.1:MSyslog.1
+C:Syslog.2:MSyslog.2
+C:Syslog.3:MSyslog.3
+S:Pic1:Pic1
+S:Pic2:Pic2
+S:Pic3:Pic3
+
+M:Pic1::
+P00008482Pic1
+
+M:Pic2::
+P00008482Pic2
+
+M:Pic3::
+P00008482Pic3
+
+M:Battery::affbffcff
+C:Status:a00
+C:Status raw:a01
+C:Charge 500ma:a0001
+C:Charge 100ma:a0000
+C:USB Disable:a0101
+C:USB Enable:a0100
