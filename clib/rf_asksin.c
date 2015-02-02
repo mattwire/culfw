@@ -3,7 +3,7 @@
 #include <string.h>
 #include <avr/pgmspace.h>
 #include "cc1100.h"
-#include "delay.h"
+#include "arch.h"
 #include "rf_receive.h"
 #include "display.h"
 #include "cc1101_pllcheck.h"
@@ -64,8 +64,13 @@ void
 rf_asksin_init(void)
 {
 
+#ifdef XMEGA
+  CC1100_CS_PORT.DIRSET = CC1100_CS_PIN; 
+  CC1100_IN_PORT.DIRCLR = CC1100_IN_PIN; 
+#else
   EIMSK &= ~_BV(CC1100_INT);                 // disable INT - we'll poll...
   SET_BIT( CC1100_CS_DDR, CC1100_CS_PIN );   // CS as output
+#endif  
 
   CC1100_DEASSERT;                           // Toggle chip select signal
   my_delay_us(30);
@@ -123,7 +128,7 @@ rf_asksin_task(void)
     return;
 
   // see if a CRC OK pkt has been arrived
-  if (bit_is_set( CC1100_IN_PORT, CC1100_IN_PIN )) {
+  if (gdo2_is_set()) {
     msg[0] = cc1100_readReg( CC1100_RXFIFO ) & 0x7f; // read len
 
     if (msg[0] >= MAX_ASKSIN_MSG) {

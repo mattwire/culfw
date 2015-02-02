@@ -9,6 +9,7 @@
 
 #include <avr/io.h>
 #include "led.h"
+#include "arch.h"
 
 void ccInitChip(uint8_t *cfg);
 void cc_factory_reset(void);
@@ -18,7 +19,7 @@ void ccRX(void);
 uint8_t ccStrobe(uint8_t);
 void ccreg(char*);
 void ccsetpa(char*);
-uint8_t cc1100_sendbyte(uint8_t data);
+#define cc1100_sendbyte(x) spi_send(x)
 void cc1100_writeReg(uint8_t addr, uint8_t data);
 uint8_t cc1100_readReg(uint8_t addr);
 void set_ccoff(void);
@@ -177,8 +178,13 @@ extern uint8_t cc_on;
 
 #include "board.h"
 
+#ifndef XMEGA
 #define CC1100_DEASSERT  SET_BIT( CC1100_CS_PORT, CC1100_CS_PIN )
 #define CC1100_ASSERT    CLEAR_BIT( CC1100_CS_PORT, CC1100_CS_PIN )
+#else
+#define CC1100_DEASSERT  CC1100_CS_PORT.OUTSET = CC1100_CS_PIN 
+#define CC1100_ASSERT    CC1100_CS_PORT.OUTCLR = CC1100_CS_PIN 
+#endif
 
 
 /******************************************************************************/

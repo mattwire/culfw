@@ -1,21 +1,36 @@
-F_CPU = 8000000
 FORMAT = ihex
 OBJDIR = .
 
+ifeq ($(TARGET), CUX)
+ARCH      = XMEGA
+F_CPU     = 32000000
+MCU       = atxmega128a4u
+else
 ARCH      = AVR8
-F_USB     = $(F_CPU)
+F_CPU     = 8000000
+endif
+
+ifeq ($(ARCH), AVR8)
+  F_USB      = 8000000
+else ifeq ($(ARCH), XMEGA)
+  F_USB      = 48000000
+else ifeq ($(ARCH), UC3)
+  F_USB      = 48000000
+endif
+
 LUFA_PATH = ../../LUFA/LUFA
 LUFA_OPTS = -DUSE_LUFA_CONFIG_HEADER -IConfig/
 
 include $(LUFA_PATH)/Build/lufa_sources.mk
 
-SRC =           CUL.c						     \
-		../../clib/Descriptors.c                             \
+lcARCH = $(shell echo $(ARCH) | tr A-Z a-z)
+
+SRC =           ../../clib/arch_$(lcARCH).c			     \
+		CUL.c                           	   	     \
 		../../clib/cc1100.c                                  \
 		../../clib/cc1101_pllcheck.c                         \
 		../../clib/clock.c                                   \
 		../../clib/usb.c                                     \
-		../../clib/delay.c                                   \
 		../../clib/display.c                                 \
 		../../clib/stringfunc.c                              \
 		../../clib/fncollection.c                            \
@@ -23,21 +38,22 @@ SRC =           CUL.c						     \
 		../../clib/rf_send.c                                 \
 		../../clib/rf_receive.c                              \
 		../../clib/rf_router.c                               \
-		../../clib/rf_asksin.c                               \
-		../../clib/rf_moritz.c                               \
 		../../clib/rf_rwe.c                                  \
 		../../clib/intertechno.c                             \
 		../../clib/somfy_rts.c                               \
 		../../clib/fht.c                                     \
 		../../clib/fastrf.c                                  \
+		../../clib/rf_asksin.c                               \
+		../../clib/rf_moritz.c                               \
 		../../clib/ttydata.c                                 \
-		../../clib/spi.c                                     \
 		../../clib/memory.c                                  \
-		$(LUFA_SRC_USB_DEVICE) $(LUFA_SRC_USBCLASS_DEVICE)
+		../../clib/Descriptors.c                             \
+		$(LUFA_SRC_USB) $(LUFA_SRC_USBCLASS)
+
 
 CFLAGS  = -D$(TARGET)
 CFLAGS += -DF_CPU=$(F_CPU)UL -DF_USB=$(F_USB)UL -DF_CLOCK=$(F_CPU)UL
-CFLAGS += -DLUFA $(LUFA_OPTS)
+CFLAGS += -DARCH=ARCH_$(ARCH) -DLUFA $(LUFA_OPTS)
 CFLAGS += -Os
 CFLAGS += -funsigned-char       #   12 Byte (shorter code)
 CFLAGS += -funsigned-bitfields  #    0
@@ -83,7 +99,8 @@ MSG_CLEANING = Cleaning project:
 
 OBJ = $(SRC:%.c=$(OBJDIR)/%.o)
 
-ifeq ($(TARGET), CUL_V3)
+MBUS_TARGETS = CUL_V3 CUX
+ifneq ($(findstring $(TARGET),$(MBUS_TARGETS)),)
 SRC += ../../clib/rf_mbus.c ../../clib/mbus/manchester.c ../../clib/mbus/3outof6.c ../../clib/mbus/mbus_packet.c ../../clib/mbus/crc.c
 endif
 
@@ -93,8 +110,10 @@ all:
 	make TARGET=CUL_V2_MAX MCU=at90usb162 mostly_clean build size
 	make TARGET=CUL_V3 MCU=atmega32u4 mostly_clean build size
 	make TARGET=CUL_V4 MCU=atmega32u2 mostly_clean build size
+	make TARGET=CUX MCU=atxmega128a4u mostly_clean build size
 
 build: elf hex eep lss sym
+	echo $(LUFA_SRC_USB_DEVICE) $(LUFA_SRC_USBCLASS_DEVICE)
 
 elf: $(TARGET).elf
 hex: $(TARGET).hex
@@ -111,7 +130,11 @@ size:
 
 
 usbprogram:
-	@echo 'specify one of: usbprogram_v2 usbprogram_v2_hm usbprogram_v3 usbprogram_v4'
+	@echo 'specify one of: usbprogram_v2 usbprogram_v2_hm usbprogram_v3 usbprogram_v4 usbprogram_x'
+
+usbprogram_x: TARGET=CUX
+usbprogram_x: MCU=atxmega128a4u
+usbprogram_x: do_usbprogram
 
 usbprogram_v4: TARGET=CUL_V4
 usbprogram_v4: MCU=atmega32u2
@@ -166,7 +189,7 @@ do_usbprogram:
 
 $(OBJDIR)/%.o : %.c
 	@echo $(MSG_COMPILING) $<
-	@$(CC) -c $(ALL_CFLAGS) $< -o $@
+	$(CC) -c $(ALL_CFLAGS) $< -o $@
 
 mostly_clean:
 	@echo $(MSG_CLEANING)

@@ -4,7 +4,7 @@
 #include <avr/pgmspace.h>
 #include "rf_router.h"
 #include "cc1100.h"
-#include "delay.h"
+#include "arch.h"
 #include "display.h"
 #include "rf_receive.h"
 #include "fncollection.h"
@@ -95,8 +95,8 @@ rf_router_func(char *in)
 #define RF_ROUTER_ZERO_LOW  768
 #define RF_ROUTER_ONE_HIGH  768
 #define RF_ROUTER_ONE_LOW   384
-#define SET_HIGH CC1100_OUT_PORT |= _BV(CC1100_OUT_PIN)
-#define SET_LOW  CC1100_OUT_PORT &= ~_BV(CC1100_OUT_PIN)
+#define SET_HIGH CC1100_OUT_SET
+#define SET_LOW  CC1100_OUT_CLR
 void sethigh(uint16_t dur) { SET_HIGH; my_delay_us(dur); }
 void setlow(uint16_t dur) { SET_LOW; my_delay_us(dur); }
 

@@ -3,20 +3,17 @@
    Inpired by the MyUSB USBtoSerial demo, Copyright (C) Dean Camera, 2008.
 */
 
-#include <avr/boot.h>
 #include <avr/power.h>
 #include <avr/eeprom.h>
 #include <avr/interrupt.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
-#include <avr/wdt.h>
 
 #include <string.h>
 
-#include "spi.h"
 #include "cc1100.h"
 #include "clock.h"
-#include "delay.h"
+#include "arch.h"
 #include "display.h"
 #include "fncollection.h"
 #include "led.h"		// ledfunc
@@ -108,58 +105,25 @@ const PROGMEM t_fntab fntab[] = {
 };
 
 
-void
-start_bootloader(void)
-{
-  cli();
-
-  /* move interrupt vectors to bootloader section and jump to bootloader */
-  MCUCR = _BV(IVCE);
-  MCUCR = _BV(IVSEL);
-
-#if defined(CUL_V3) || defined(CUL_V4)
-#  define jump_to_bootloader ((void(*)(void))0x3800)
-#endif
-#if defined(CUL_V2)
-#  define jump_to_bootloader ((void(*)(void))0x1800)
-#endif
-  jump_to_bootloader();
-}
-
 int
 main(void)
 {
-  wdt_enable(WDTO_2S);
-  clock_prescale_set(clock_div_1);
 
-  MARK433_PORT |= _BV( MARK433_BIT ); // Pull 433MHz marker
-  MARK915_PORT |= _BV( MARK915_BIT ); // Pull 915MHz marker
+  cpu_set_clock();
 
-  // if we had been restarted by watchdog check the REQ BootLoader byte in the
-  // EEPROM ...
-  if(bit_is_set(MCUSR,WDRF) && erb(EE_REQBL)) {
-    ewb( EE_REQBL, 0 ); // clear flag
-    start_bootloader();
-  }
+  setup_io();
+  
+  check_bootloader_req();
 
-
-  // Setup the timers. Are needed for watchdog-reset
-  OCR0A  = 249;                            // Timer0: 0.008s = 8MHz/256/250
-  TCCR0B = _BV(CS02);
-  TCCR0A = _BV(WGM01);
-  TIMSK0 = _BV(OCIE0A);
-
-  TCCR1A = 0;
-  TCCR1B = _BV(CS11) | _BV(WGM12);         // Timer1: 1us = 8MHz/8
-
-  MCUSR &= ~(1 << WDRF);                   // Enable the watchdog
-
+  setup_timer();
+  
   led_init();
   spi_init();
   eeprom_init();
   usb_init();
   fht_init();
   tx_init();
+
   input_handle_func = analyze_ttydata;
 #ifdef HAS_RF_ROUTER
   rf_router_init();

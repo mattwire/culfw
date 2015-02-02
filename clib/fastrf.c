@@ -4,7 +4,7 @@
 #include <avr/pgmspace.h>
 #include "fastrf.h"
 #include "cc1100.h"
-#include "delay.h"
+#include "arch.h"
 #include "display.h"
 #include "rf_receive.h"
 #include "fncollection.h"

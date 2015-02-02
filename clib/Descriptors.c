@@ -37,6 +37,7 @@
 
 #include "Descriptors.h"
 #include "board.h"
+#include "arch.h"
 
 
 /** Device descriptor structure. This descriptor, located in FLASH memory, describes the overall
@@ -236,7 +237,7 @@ uint16_t CALLBACK_USB_GetDescriptor(const uint16_t wValue,
 					break;
 				case STRING_ID_Product:
 #ifdef MULTI_FREQ_DEVICE
-				  if (!bit_is_set(MARK433_PIN, MARK433_BIT))
+				  if (is433MHz())
 				    Address = &ProductString433;
 				  else
 #endif

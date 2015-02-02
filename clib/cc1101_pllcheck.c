@@ -2,7 +2,6 @@
  
 #include <avr/io.h>
 #include "cc1100.h"
-#include "delay.h"
 #include "display.h"
 #include "fncollection.h"
 

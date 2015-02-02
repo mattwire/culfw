@@ -11,7 +11,7 @@
 #include <string.h>
 
 #include "board.h"
-#include "delay.h"
+#include "arch.h"
 #include "rf_send.h"
 #include "rf_receive.h"
 #include "led.h"
@@ -58,10 +58,10 @@ static uint8_t zerohigh, zerolow, onehigh, onelow;
 static void
 send_bit(uint8_t bit)
 {
-  CC1100_OUT_PORT |= _BV(CC1100_OUT_PIN);         // High
+  CC1100_OUT_SET;   // High
   my_delay_us(bit ? TMUL(onehigh) : TMUL(zerohigh));
 
-  CC1100_OUT_PORT &= ~_BV(CC1100_OUT_PIN);       // Low
+  CC1100_OUT_CLR;   // Low
   my_delay_us(bit ? TMUL(onelow) : TMUL(zerolow));
 }
 
@@ -73,10 +73,10 @@ send_bit(uint8_t bit)
 static void
 send_bit(uint8_t bit)
 {
-  CC1100_OUT_PORT |= _BV(CC1100_OUT_PIN);         // High
+  CC1100_OUT_SET;   // High
   my_delay_us(bit ? FS20_ONE : FS20_ZERO);
 
-  CC1100_OUT_PORT &= ~_BV(CC1100_OUT_PIN);       // Low
+  CC1100_OUT_CLR;   // Low
   my_delay_us(bit ? FS20_ONE : FS20_ZERO);
 }
 

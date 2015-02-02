@@ -1,11 +1,11 @@
 #include "board.h"
 #ifdef HAS_MORITZ
+#include <arch.h>
 #include <string.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
 #include <avr/io.h>
 #include "cc1100.h"
-#include "delay.h"
 #include "rf_receive.h"
 #include "display.h"
 #include "clock.h"
@@ -77,8 +77,13 @@ static uint32_t lastSendingTicks = 0;
 void
 rf_moritz_init(void)
 {
-  EIMSK &= ~_BV(CC1100_INT);                 // disable INT - we'll poll...
-  SET_BIT( CC1100_CS_DDR, CC1100_CS_PIN );   // CS as output
+#ifdef XMEGA
+    CC1100_CS_PORT.DIRSET = CC1100_CS_PIN; 
+    CC1100_IN_PORT.DIRCLR = CC1100_IN_PIN; 
+#else
+    EIMSK &= ~_BV(CC1100_INT);                 // disable INT - we'll poll...
+    SET_BIT( CC1100_CS_DDR, CC1100_CS_PIN );   // CS as output
+#endif
 
   CC1100_DEASSERT;                           // Toggle chip select signal
   my_delay_us(30);
@@ -88,7 +93,7 @@ rf_moritz_init(void)
   my_delay_us(45);
 
   ccStrobe( CC1100_SRES );                   // Send SRES command
-  my_delay_us(100);
+  my_delay_ms(100);
 
   // load configuration
   for (uint8_t i = 0; i<60; i += 2) {
@@ -163,7 +168,7 @@ rf_moritz_task(void)
     return;
 
   // see if a CRC OK pkt has been arrived
-  if(bit_is_set( CC1100_IN_PORT, CC1100_IN_PIN )) {
+  if(gdo2_is_set()) {
     //errata #1 does not affect us, because we wait until packet is completely received
     enc[0] = cc1100_readReg( CC1100_RXFIFO ) & 0x7f; // read len
 

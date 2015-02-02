@@ -10,7 +10,7 @@
 #include <string.h>
 
 #include "board.h"
-#include "delay.h"
+#include "arch.h"
 #include "rf_send.h"
 #include "rf_receive.h"
 #include "led.h"
@@ -91,11 +91,19 @@ static uint8_t wave_equals(wave_t *a, uint8_t htime, uint8_t ltime);
 void
 tx_init(void)
 {
+#ifdef XMEGA
+  CC1100_OUT_PORT.DIRSET = CC1100_OUT_PIN;
+  CC1100_OUT_PORT.OUTCLR = CC1100_OUT_PIN;
+  // setup interrupt
+  CC1100_IN_PORT.DIRCLR = CC1100_IN_PIN;
+  CC1100_IN_PORT.CC1100_IN_PINCTRL = PORT_ISC_BOTHEDGES_gc;
+  CC1100_IN_PORT.INTCTRL |= PORT_INT1LVL_HI_gc;
+#else
   SET_BIT  ( CC1100_OUT_DDR,  CC1100_OUT_PIN);
   CLEAR_BIT( CC1100_OUT_PORT, CC1100_OUT_PIN);
-
   CLEAR_BIT( CC1100_IN_DDR,   CC1100_IN_PIN);
-  SET_BIT( CC1100_EICR, CC1100_ISC);  // Any edge of INTx generates an int.
+  SET_BIT( CC1100_EICR, CC1100_ISC);
+#endif
 
   credit_10ms = MAX_CREDIT/2;
 
@@ -289,10 +297,10 @@ analyze_hms(bucket_t *b)
   }
 
   // Read crc
-  uint8_t CRC = getbits(&in, 8, 0);
-  if(parity_even_bit(CRC) != getbit(&in))
+  uint8_t xCRC = getbits(&in, 8, 0);
+  if(parity_even_bit(xCRC) != getbit(&in))
     return 0;
-  if(crc!=CRC)
+  if(crc!=xCRC)
     return 0;
   return 1;
 }
@@ -621,23 +629,23 @@ RfAnalyze_Task(void)
 static void
 reset_input(void)
 {
-  TIMSK1 = 0;
+  BITINT_OFF;
   bucket_array[bucket_in].state = STATE_RESET;
 }
 
 //////////////////////////////////////////////////////////////////////
 // Timer Compare Interrupt Handler. If we are called, then there was no
 // data for SILENCE time, and we can put the data to be analysed
-ISR(TIMER1_COMPA_vect)
+ISR(BITINT)
 {
 #ifdef LONG_PULSE
   uint16_t tmp;
 #endif
-  TIMSK1 = 0;                           // Disable "us"
+  BITINT_OFF;
 #ifdef LONG_PULSE
-  tmp=OCR1A;
-  OCR1A = TWRAP;                        // Wrap Timer
-  TCNT1=tmp;                            // reinitialize timer to measure times > SILENCE
+  tmp=BITMAX;
+  BITMAX = TWRAP;                        // Wrap Timer
+  BITCNT=tmp;                            // reinitialize timer to measure times > SILENCE
 #endif
   if(tx_report & REP_MONITOR)
     DC('.');
@@ -725,7 +733,7 @@ delbit(bucket_t *b)
 
 //////////////////////////////////////////////////////////////////////
 // "Edge-Detected" Interrupt Handler
-ISR(CC1100_INTVECT)
+ISR(PININT)
 {  
 #ifdef HAS_FASTRF
   if(fastrf_on) {
@@ -741,9 +749,9 @@ ISR(CC1100_INTVECT)
   }
 #endif
 #ifdef LONG_PULSE
-  uint16_t c = (TCNT1>>4);               // catch the time and make it smaller
+  uint16_t c = (BITCNT>>4);               // catch the time and make it smaller
 #else
-  uint8_t c = (TCNT1>>4);               // catch the time and make it smaller
+  uint8_t c = (BITCNT>>4);               // catch the time and make it smaller
 #endif
 
   bucket_t *b = bucket_array+bucket_in; // where to fill in the bit
@@ -770,14 +778,14 @@ ISR(CC1100_INTVECT)
 
   //////////////////
   // Falling edge
-  if(!bit_is_set(CC1100_IN_PORT,CC1100_IN_PIN)) {
+  if(!gdo2_is_set()) {
     if( (b->state == STATE_HMS)
 #ifdef HAS_ESA
      || (b->state == STATE_ESA) 
 #endif
     ) {
       addbit(b, 1);
-      TCNT1 = 0;
+      BITCNT = 0;
     }
     hightime = c;
     return;
@@ -785,7 +793,7 @@ ISR(CC1100_INTVECT)
   }
 
   lowtime = c-hightime;
-  TCNT1 = 0;                          // restart timer
+  BITCNT = 0;                          // restart timer
   if( (b->state == STATE_HMS)
 #ifdef HAS_ESA
      || (b->state == STATE_ESA) 
@@ -797,7 +805,7 @@ ISR(CC1100_INTVECT)
 
   ///////////////////////
   // http://www.nongnu.org/avr-libc/user-manual/FAQ.html#faq_intbits
-  TIFR1 = _BV(OCF1A);                 // clear Timers flags (?, important!)
+  BITINT_CLR;                 // clear Timers flags (?, important!)
   
 #ifdef HAS_REVOLT
   if ((hightime > TSCALE(9000)) && (hightime < TSCALE(12000)) &&
@@ -812,8 +820,8 @@ ISR(CC1100_INTVECT)
     b->byteidx = 0;
     b->bitidx  = 7;
     b->data[0] = 0;
-    OCR1A = SILENCE;
-    TIMSK1 = _BV(OCIE1A);
+    BITMAX = SILENCE;
+    BITINT_ON;    
     return;
   } 
 #endif
@@ -830,8 +838,8 @@ ISR(CC1100_INTVECT)
     b->byteidx = 0;
     b->bitidx  = 7;
     b->data[0] = 0;
-    OCR1A = SILENCE;
-    TIMSK1 = _BV(OCIE1A);
+    BITMAX = SILENCE;
+    BITINT_ON;
     return;
   }
 #endif
@@ -857,7 +865,7 @@ retry_sync:
 
     } else if(b->sync >= 4 ) {          // the one bit at the end of the 0-sync
 
-      OCR1A = SILENCE;
+      BITMAX = SILENCE;
       if (b->sync >= 12 && (b->zero.hightime + b->zero.lowtime) > TSCALE(1600)) {
         b->state = STATE_HMS;
 
@@ -865,7 +873,7 @@ retry_sync:
       } else if (b->sync >= 10 && (b->zero.hightime + b->zero.lowtime) < TSCALE(600)) {
         b->state = STATE_ESA;
   
-  OCR1A = 1000;
+  BITMAX = 1000;
   
 #endif
 #ifdef HAS_RF_ROUTER
@@ -891,8 +899,7 @@ retry_sync:
       b->bitidx  = 7;
       b->data[0] = 0;
 
-      TIMSK1 = _BV(OCIE1A);             // On timeout analyze the data
-
+      BITINT_ON;
     } else {                            // too few sync bits
 
       b->state = STATE_RESET;

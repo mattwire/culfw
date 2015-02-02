@@ -3,7 +3,7 @@
 #include <string.h>
 #include <avr/pgmspace.h>
 #include "cc1100.h"
-#include "delay.h"
+#include "arch.h"
 #include "rf_receive.h"
 #include "display.h"
 

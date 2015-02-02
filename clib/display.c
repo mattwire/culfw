@@ -7,7 +7,6 @@
 #include "serial.h"
 #endif
 #include "led.h"
-#include "delay.h"
 #include "pcf8833.h"
 #include "ttydata.h"            // callfn
 #include "fht.h"                // fht_hc

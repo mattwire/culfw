@@ -3,8 +3,8 @@
 #include <avr/interrupt.h>
 
 #include "board.h"
+#include "arch.h"
 #include "display.h"
-#include "delay.h"
 #include "fncollection.h"
 #include "cc1100.h"
 #include "../version.h"
@@ -286,7 +286,9 @@ prepare_boot(char *in)
 #endif
 
 
+#ifndef XMEGA
   TIMSK0 = 0;                // Disable the clock which resets the watchdog
+#endif
   cli();
   
   wdt_enable(WDTO_15MS);       // Make sure the watchdog is running 
@@ -305,7 +307,7 @@ version(char *in)
 #endif
 
 #ifdef MULTI_FREQ_DEVICE     // check 433MHz version marker
-  if (!bit_is_set(MARK433_PIN, MARK433_BIT))
+  if (is433MHz())
     DS_P( PSTR("V " VERSION " " BOARD_ID_STR433) );
   else
 #endif

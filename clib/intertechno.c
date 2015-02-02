@@ -14,7 +14,7 @@
 
 #ifdef HAS_INTERTECHNO
 
-#include "delay.h"
+#include "arch.h"
 #include "rf_send.h"
 #include "rf_receive.h"
 #include "led.h"
@@ -88,246 +88,251 @@ unsigned char it_frequency[] = {0x10, 0xb0, 0x71};
 static void
 it_tunein(void)
 {
-		  int8_t i;
-		  
- 		 	EIMSK &= ~_BV(CC1100_INT);                 
-  		SET_BIT( CC1100_CS_DDR, CC1100_CS_PIN ); // CS as output
+  int8_t i;
 
-  		CC1100_DEASSERT;                           // Toggle chip select signal
-  		my_delay_us(30);
-  		CC1100_ASSERT;
-  		my_delay_us(30);
-  		CC1100_DEASSERT;
-  		my_delay_us(45);
-
-		  ccStrobe( CC1100_SRES );                   // Send SRES command
-  		my_delay_us(100);
-
-		  CC1100_ASSERT;                             // load configuration
-  		cc1100_sendbyte( 0 | CC1100_WRITE_BURST );
-  		for(uint8_t i = 0; i < 13; i++) {
-    		cc1100_sendbyte(__LPM(CC1100_ITCFG+i));
-  		}																										// Tune to standard IT-Frequency
-  		cc1100_sendbyte(it_frequency[0]);										// Modify Freq. for 433.92MHZ, or whatever
-	  	cc1100_sendbyte(it_frequency[1]);
-	 		cc1100_sendbyte(it_frequency[2]);  		
- 			for (i = 16; i<EE_CC1100_CFG_SIZE; i++) {
-   			cc1100_sendbyte(__LPM(CC1100_ITCFG+i));
- 			}
-  		CC1100_DEASSERT;
-
-  		uint8_t *pa = EE_CC1100_PA;
-		  CC1100_ASSERT;                             // setup PA table
-  		cc1100_sendbyte( CC1100_PATABLE | CC1100_WRITE_BURST );
-  		for (uint8_t i = 0;i<8;i++) {
-    		cc1100_sendbyte(erb(pa++));
-  		}
-  		CC1100_DEASSERT;
-
-  		ccStrobe( CC1100_SCAL );
-  		my_delay_ms(1);
-  		cc_on = 1;																	// Set CC_ON	
+#ifdef XMEGA
+  CC1100_CS_PORT.DIRSET = CC1100_CS_PIN; 
+  CC1100_IN_PORT.DIRCLR = CC1100_IN_PIN; 
+#else
+  EIMSK &= ~_BV(CC1100_INT);                 
+  SET_BIT( CC1100_CS_DDR, CC1100_CS_PIN ); // CS as output
+#endif
+  
+  CC1100_DEASSERT;                           // Toggle chip select signal
+  my_delay_us(30);
+  CC1100_ASSERT;
+  my_delay_us(30);
+  CC1100_DEASSERT;
+  my_delay_us(45);
+  
+  ccStrobe( CC1100_SRES );                   // Send SRES command
+  my_delay_us(100);
+  
+  CC1100_ASSERT;                             // load configuration
+  cc1100_sendbyte( 0 | CC1100_WRITE_BURST );
+  for(uint8_t i = 0; i < 13; i++) {
+    cc1100_sendbyte(__LPM(CC1100_ITCFG+i));
+  }																										// Tune to standard IT-Frequency
+  cc1100_sendbyte(it_frequency[0]);										// Modify Freq. for 433.92MHZ, or whatever
+  cc1100_sendbyte(it_frequency[1]);
+  cc1100_sendbyte(it_frequency[2]);  		
+  for (i = 16; i<EE_CC1100_CFG_SIZE; i++) {
+    cc1100_sendbyte(__LPM(CC1100_ITCFG+i));
+  }
+  CC1100_DEASSERT;
+  
+  uint8_t *pa = EE_CC1100_PA;
+  CC1100_ASSERT;                             // setup PA table
+  cc1100_sendbyte( CC1100_PATABLE | CC1100_WRITE_BURST );
+  for (uint8_t i = 0;i<8;i++) {
+    cc1100_sendbyte(erb(pa++));
+  }
+  CC1100_DEASSERT;
+  
+  ccStrobe( CC1100_SCAL );
+  my_delay_ms(1);
+  cc_on = 1;																	// Set CC_ON	
 }
 
 static void
 send_IT_bit(uint8_t bit)
 {
-	if (bit == 1) {
-  	CC1100_OUT_PORT |= _BV(CC1100_OUT_PIN);         // High
-  	my_delay_us(it_interval * 3);
- 	  CC1100_OUT_PORT &= ~_BV(CC1100_OUT_PIN);       // Low
-	  my_delay_us(it_interval);
-
-  	CC1100_OUT_PORT |= _BV(CC1100_OUT_PIN);         // High
-  	my_delay_us(it_interval * 3);
- 	  CC1100_OUT_PORT &= ~_BV(CC1100_OUT_PIN);       // Low
-	  my_delay_us(it_interval);
+  if (bit == 1) {
+    CC1100_OUT_SET;   // High
+    my_delay_us(it_interval * 3);
+    CC1100_OUT_CLR;   // Low
+    my_delay_us(it_interval);
+    
+    CC1100_OUT_SET;   // High
+    my_delay_us(it_interval * 3);
+    CC1100_OUT_CLR;   // Low
+    my_delay_us(it_interval);
   } else if (bit == 0) {
-  	CC1100_OUT_PORT |= _BV(CC1100_OUT_PIN);         // High
-  	my_delay_us(it_interval);
- 	  CC1100_OUT_PORT &= ~_BV(CC1100_OUT_PIN);       // Low
-	  my_delay_us(it_interval * 3);
-
-  	CC1100_OUT_PORT |= _BV(CC1100_OUT_PIN);         // High
-  	my_delay_us(it_interval);
- 	  CC1100_OUT_PORT &= ~_BV(CC1100_OUT_PIN);       // Low
-	  my_delay_us(it_interval * 3);
+    CC1100_OUT_SET;   // High
+    my_delay_us(it_interval);
+    CC1100_OUT_CLR;   // Low
+    my_delay_us(it_interval * 3);
+    
+    CC1100_OUT_SET;   // High
+    my_delay_us(it_interval);
+    CC1100_OUT_CLR;   // Low
+    my_delay_us(it_interval * 3);
   } else {
-  	CC1100_OUT_PORT |= _BV(CC1100_OUT_PIN);         // High
-  	my_delay_us(it_interval);
- 	  CC1100_OUT_PORT &= ~_BV(CC1100_OUT_PIN);       // Low
-	  my_delay_us(it_interval * 3);
-
-  	CC1100_OUT_PORT |= _BV(CC1100_OUT_PIN);         // High
-  	my_delay_us(it_interval * 3);
- 	  CC1100_OUT_PORT &= ~_BV(CC1100_OUT_PIN);       // Low
-	  my_delay_us(it_interval);  	
+    CC1100_OUT_SET;   // High
+    my_delay_us(it_interval);
+    CC1100_OUT_CLR;   // Low
+    my_delay_us(it_interval * 3);
+    
+    CC1100_OUT_SET;   // High
+    my_delay_us(it_interval * 3);
+    CC1100_OUT_CLR;   // Low
+    my_delay_us(it_interval);  	
   }
 }
 
 static void
 it_send (char *in) {	
-	  int8_t i, j, k;
-
-		LED_ON();
-
-    #if defined (HAS_IRRX) || defined (HAS_IRTX) //Blockout IR_Reception for the moment
-      cli(); 
-    #endif
-			
-
-	// If NOT InterTechno mode
-	if(!intertechno_on)  {
-	#ifdef HAS_ASKSIN
-		if (asksin_on) {
-			restore_asksin = 1;
-			asksin_on = 0;
-			}
-	#endif
-	#ifdef HAS_MORITZ
-		if(moritz_on) {
-			restore_moritz = 1;
-			moritz_on = 0;
-		}
-	#endif
-	it_tunein();
-	my_delay_ms(3);             // 3ms: Found by trial and error
-}
-  	ccStrobe(CC1100_SIDLE);
-  	ccStrobe(CC1100_SFRX );
-  	ccStrobe(CC1100_SFTX );
-
-	  ccTX();                       // Enable TX 
-	
-		for(i = 0; i < it_repetition; i++)  {
-		  for(j = 1; j < 13; j++)  {
-			  if(in[j+1] == '0') {
-					send_IT_bit(0);
-				} else if (in[j+1] == '1') {
-					send_IT_bit(1);
-				} else {
-					send_IT_bit(2);
-				}
-			}
-			// Sync-Bit
-		  CC1100_OUT_PORT |= _BV(CC1100_OUT_PIN);         // High
-		  my_delay_us(it_interval);
-		  CC1100_OUT_PORT &= ~_BV(CC1100_OUT_PIN);       // Low
-		  for(k = 0; k < 31; k++)  {
-			  my_delay_us(it_interval);
-			}
-		} //Do it n Times
-	
-  	if(intertechno_on) {
-			if(tx_report) {                               // Enable RX
-	    	ccRX();
-	  	} else {
-		  	ccStrobe(CC1100_SIDLE);
-			}
-  	} 
-  	#ifdef HAS_ASKSIN
-   	  else if (restore_asksin) {
-				restore_asksin = 0;
-   			rf_asksin_init();
-				asksin_on = 1;
-   		 	ccRX();
-  		}  
-  	#endif
-	#ifdef HAS_MORITZ
-	else if (restore_moritz) {
-		restore_moritz = 0;
-		rf_moritz_init();
-	}
-	#endif
-  	else {
-    	set_txrestore();
-  	}	
-
-    #if defined (HAS_IRRX) || defined (HAS_IRTX) //Activate IR_Reception again
-      sei(); 
-    #endif		  
-
-		LED_OFF();
-	
-		DC('i');DC('s');
-		for(j = 1; j < 13; j++)  {
-		 	if(in[j+1] == '0') {
-				DC('0');
-			} else if (in[j+1] == '1') {
-				DC('1');
-			} else {
-				DC('F');
-			}
-		}
-		DNL();
+  int8_t i, j, k;
+  
+  LED_ON();
+  
+#if defined (HAS_IRRX) || defined (HAS_IRTX) //Blockout IR_Reception for the moment
+  cli(); 
+#endif
+  
+  
+  // If NOT InterTechno mode
+  if(!intertechno_on)  {
+#ifdef HAS_ASKSIN
+    if (asksin_on) {
+      restore_asksin = 1;
+      asksin_on = 0;
+    }
+#endif
+#ifdef HAS_MORITZ
+    if(moritz_on) {
+      restore_moritz = 1;
+      moritz_on = 0;
+    }
+#endif
+    it_tunein();
+    my_delay_ms(3);             // 3ms: Found by trial and error
+  }
+  ccStrobe(CC1100_SIDLE);
+  ccStrobe(CC1100_SFRX );
+  ccStrobe(CC1100_SFTX );
+  
+  ccTX();                       // Enable TX 
+  
+  for(i = 0; i < it_repetition; i++)  {
+    for(j = 1; j < 13; j++)  {
+      if(in[j+1] == '0') {
+	send_IT_bit(0);
+      } else if (in[j+1] == '1') {
+	send_IT_bit(1);
+      } else {
+	send_IT_bit(2);
+      }
+    }
+    // Sync-Bit
+    CC1100_OUT_SET;   // High
+    my_delay_us(it_interval);
+    CC1100_OUT_CLR;   // Low
+    for(k = 0; k < 31; k++)  {
+      my_delay_us(it_interval);
+    }
+  } //Do it n Times
+  
+  if(intertechno_on) {
+    if(tx_report) {                               // Enable RX
+      ccRX();
+    } else {
+      ccStrobe(CC1100_SIDLE);
+    }
+  } 
+#ifdef HAS_ASKSIN
+  else if (restore_asksin) {
+    restore_asksin = 0;
+    rf_asksin_init();
+    asksin_on = 1;
+    ccRX();
+  }  
+#endif
+#ifdef HAS_MORITZ
+  else if (restore_moritz) {
+    restore_moritz = 0;
+    rf_moritz_init();
+  }
+#endif
+  else {
+    set_txrestore();
+  }	
+  
+#if defined (HAS_IRRX) || defined (HAS_IRTX) //Activate IR_Reception again
+  sei(); 
+#endif		  
+  
+  LED_OFF();
+  
+  DC('i');DC('s');
+  for(j = 1; j < 13; j++)  {
+    if(in[j+1] == '0') {
+      DC('0');
+    } else if (in[j+1] == '1') {
+      DC('1');
+    } else {
+      DC('F');
+    }
+  }
+  DNL();
 }
 
 
 void
 it_func(char *in)
 {
-	if (in[1] == 't') {
-			fromdec (in+2, (uint8_t *)&it_interval);
-			DU(it_interval,0); DNL();
-	} else if (in[1] == 's') {
-			if (in[2] == 'r') {		// Modify Repetition-counter
-				fromdec (in+3, (uint8_t *)&it_repetition);
-				DU(it_repetition,0); DNL();
-			} else {
-				it_send (in);				// Sending real data
-		} //sending real data
-	} else if (in[1] == 'r') { // Start of "Set Frequency" (f)
-		#ifdef HAS_ASKSIN
-			if (asksin_on) {
-				restore_asksin = 1;
-				asksin_on = 0;
-			}
-		#endif
-		#ifdef HAS_MORITZ
-			if (moritz_on) {
-				restore_moritz = 1;
-				moritz_on = 0;
-			}
-		#endif
-		it_tunein ();
-		intertechno_on = 1;
-	} else if (in[1] == 'f') { // Set Frequency
-		  if (in[2] == '0' ) {
-		  	it_frequency[0] = 0x10;
-		  	it_frequency[1] = 0xb0;
-		  	it_frequency[2] = 0x71;
-		  } else {
-				fromhex (in+2, it_frequency, 3);
-			}
-			DC('i');DC('f');DC(':');
-		  DH2(it_frequency[0]);
-		  DH2(it_frequency[1]);
-		  DH2(it_frequency[2]);
-		  DNL();
-	} else if (in[1] == 'x') { 		                    // Reset Frequency back to Eeprom value
-		if(0) { ;
-		#ifdef HAS_ASKSIN
-		} else if (restore_asksin) {
-			restore_asksin = 0;
-			rf_asksin_init();
-			asksin_on = 1;
-			ccRX();
-		#endif
-		#ifdef HAS_MORITZ
-		} else if (restore_moritz) {
-			restore_moritz = 0;
-			rf_moritz_init();
-		#endif
-		} else {
-			ccInitChip(EE_CC1100_CFG);										// Set back to Eeprom Values
-			if(tx_report) {                               // Enable RX
-				ccRX();
-			} else {
-				ccStrobe(CC1100_SIDLE);
-			}
-		}
-		intertechno_on = 0;
-	}
+  if (in[1] == 't') {
+    fromdec (in+2, (uint8_t *)&it_interval);
+    DU(it_interval,0); DNL();
+  } else if (in[1] == 's') {
+    if (in[2] == 'r') {		// Modify Repetition-counter
+      fromdec (in+3, (uint8_t *)&it_repetition);
+      DU(it_repetition,0); DNL();
+    } else {
+      it_send (in);				// Sending real data
+    } //sending real data
+  } else if (in[1] == 'r') { // Start of "Set Frequency" (f)
+#ifdef HAS_ASKSIN
+    if (asksin_on) {
+      restore_asksin = 1;
+      asksin_on = 0;
+    }
+#endif
+#ifdef HAS_MORITZ
+    if (moritz_on) {
+      restore_moritz = 1;
+      moritz_on = 0;
+    }
+#endif
+    it_tunein ();
+    intertechno_on = 1;
+  } else if (in[1] == 'f') { // Set Frequency
+    if (in[2] == '0' ) {
+      it_frequency[0] = 0x10;
+      it_frequency[1] = 0xb0;
+      it_frequency[2] = 0x71;
+    } else {
+      fromhex (in+2, it_frequency, 3);
+    }
+    DC('i');DC('f');DC(':');
+    DH2(it_frequency[0]);
+    DH2(it_frequency[1]);
+    DH2(it_frequency[2]);
+    DNL();
+  } else if (in[1] == 'x') { 		                    // Reset Frequency back to Eeprom value
+    if(0) { ;
+#ifdef HAS_ASKSIN
+    } else if (restore_asksin) {
+      restore_asksin = 0;
+      rf_asksin_init();
+      asksin_on = 1;
+      ccRX();
+#endif
+#ifdef HAS_MORITZ
+    } else if (restore_moritz) {
+      restore_moritz = 0;
+      rf_moritz_init();
+#endif
+    } else {
+      ccInitChip(EE_CC1100_CFG);										// Set back to Eeprom Values
+      if(tx_report) {                               // Enable RX
+	ccRX();
+      } else {
+	ccStrobe(CC1100_SIDLE);
+      }
+    }
+    intertechno_on = 0;
+  }
 }
 
 #endif

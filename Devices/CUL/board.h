@@ -18,7 +18,7 @@
 #define HAS_CC1101_PLL_LOCK_CHECK_MSG		// PROGMEM:  22b
 #define HAS_CC1101_PLL_LOCK_CHECK_MSG_SW	// PROGMEM:  22b
 
-#if defined(CUL_V3) || defined(CUL_V4)
+#if defined(CUL_V3) || defined(CUL_V4) || defined(CUX)
 #  define HAS_FHT_8v                    // PROGMEM:  586b  RAM: 23b
 #  define HAS_FHT_TF
 #  define FHTBUF_SIZE          174      //                 RAM: 174b
@@ -30,7 +30,6 @@
 #  define HAS_ASKSIN
 #  define HAS_ASKSIN_FUP
 #  define HAS_MORITZ
-#  define HAS_RWE
 #  define HAS_ESA
 #  define HAS_TX3
 #  define HAS_INTERTECHNO
@@ -44,12 +43,14 @@
 #  define TTY_BUFSIZE           64      // RAM: TTY_BUFSIZE*4
 #endif
 
-#if defined(CUL_V3)
+#if defined(CUX)
+#  define TTY_BUFSIZE          128
+#endif
+
+#if defined(CUL_V3) || defined(CUX)
 #  define TTY_BUFSIZE          128      // RAM: TTY_BUFSIZE*4
 #  define HAS_MBUS
 #endif
-
-
 
 #ifdef CUL_V2
 #  define TTY_BUFSIZE           48
@@ -113,6 +114,7 @@
 #endif  // CUL_V3
 
 #define SPI_PORT		PORTB
+#define SPI_IN		        PINB
 #define SPI_DDR			DDRB
 #define SPI_SS			PB0
 #define SPI_MISO		PB3
@@ -126,8 +128,10 @@
 #  define CC1100_OUT_DDR        DDRD
 #  define CC1100_OUT_PORT       PORTD
 #  define CC1100_OUT_PIN        PD3
+#  define CC1100_OUT_IN         PIND
 #  define CC1100_IN_DDR         DDRD
 #  define CC1100_IN_PORT        PIND
+#  define CC1100_IN_IN          PIND
 #  define CC1100_IN_PIN         PD2
 #  define CC1100_INT		INT2
 #  define CC1100_INTVECT        INT2_vect
@@ -136,6 +140,7 @@
 #  define LED_DDR               DDRC
 #  define LED_PORT              PORTC
 #  define LED_PIN               PC5
+#  define CUL_HW_REVISION       "CUL_V4"
 #endif
 
 #if defined(CUL_V3)
@@ -157,6 +162,7 @@
 #  define LED_DDR               DDRE
 #  define LED_PORT              PORTE
 #  define LED_PIN               6
+#  define CUL_HW_REVISION       "CUL_V3"
 #endif
 
 #if defined(CUL_V2)
@@ -165,10 +171,12 @@
 #  define CC1100_CS_PIN		PC5
 #  define CC1100_IN_DDR		DDRC
 #  define CC1100_IN_PORT        PINC
+#  define CC1100_IN_IN          PINC
 #  define CC1100_IN_PIN         PC7
 #  define CC1100_OUT_DDR	DDRC
 #  define CC1100_OUT_PORT       PORTC
 #  define CC1100_OUT_PIN        PC6
+#  define CC1100_OUT_IN         PINC
 #  define CC1100_INT		INT4
 #  define CC1100_INTVECT        INT4_vect
 #  define CC1100_ISC		ISC40
@@ -178,19 +186,47 @@
 #  define LED_PIN               PC4
 #endif
 
-#if defined(CUL_V3)
-#  define CUL_HW_REVISION "CUL_V3"
-#elif defined(CUL_V4)
-#  define CUL_HW_REVISION "CUL_V4"
+#if defined(CUX)
+#  define XMEGA
+
+#  define CC1100_CS_PORT        PORTC
+#  define CC1100_CS_PIN		PIN4_bm
+
+#  define CC1100_OUT_PORT       PORTA
+#  define CC1100_OUT_PIN        PIN4_bm
+
+#  define _CC1100_OUT_PORT       PORTA
+#  define _CC1100_OUT_PIN        PIN7_bm
+
+#  define CC1100_IN_PORT        PORTA
+#  define CC1100_IN_PIN         PIN5_bm
+#  define CC1100_IN_PINCTRL     PIN5CTRL
+#  define CC1100_IN_INTMASK     INT1MASK
+#  define CC1100_IN_INT         PORTA_INT1_vect
+
+#  define _CC1100_IN_PORT        PORTB
+#  define _CC1100_IN_PIN         PIN0_bm
+
+#  define CC1100_SPI_PORT       PORTC
+#  define CC1100_SPI		SPIC
+
+#  define LED_PORT              PORTE
+#  define LED_PIN               PIN2_bm
+
+#  define _LED_PORT              PORTD
+#  define _LED_PIN               PIN5_bm
+
+#  define CUL_HW_REVISION       "CUX_V1"
 #else
-//#  define CUL_HW_REVISION "CUL_V2"    // No more mem for this feature
+
+# define MARK433_PORT            PORTB
+# define MARK433_PIN             PINB
+# define MARK433_BIT             6
+# define MARK915_PORT            PORTB
+# define MARK915_PIN             PINB
+# define MARK915_BIT             5
+
 #endif
 
-#define MARK433_PORT            PORTB
-#define MARK433_PIN             PINB
-#define MARK433_BIT             6
-#define MARK915_PORT            PORTB
-#define MARK915_PIN             PINB
-#define MARK915_BIT             5
 
 #endif // __BOARD_H__

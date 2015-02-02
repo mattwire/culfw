@@ -9,7 +9,7 @@
 #include <string.h>
 #include <avr/pgmspace.h>
 #include "cc1100.h"
-#include "delay.h"
+#include "arch.h"
 #include "rf_receive.h"
 #include "display.h"
 
@@ -87,13 +87,19 @@ static uint8_t rf_mbus_on(uint8_t force) {
 
 static void rf_mbus_init(uint8_t mode) {
 
+  mbus_mode = WMBUS_NONE;
+
+#ifdef XMEGA
+  CC1100_CS_PORT.DIRSET = CC1100_CS_PIN; 
+  CC1100_IN_PORT.DIRCLR = CC1100_IN_PIN; 
+  CC1100_OUT_PORT.DIRCLR = CC1100_OUT_PIN; 
+#else
   CLEAR_BIT( GDO0_DDR, GDO0_BIT );
   CLEAR_BIT( GDO2_DDR, GDO2_BIT );
 
-  mbus_mode = WMBUS_NONE;
-
   EIMSK &= ~_BV(CC1100_INT);                 // disable INT - we'll poll...
   SET_BIT( CC1100_CS_DDR, CC1100_CS_PIN );   // CS as output
+#endif
 
   CC1100_DEASSERT;                           // Toggle chip select signal
   my_delay_us(30);
@@ -148,14 +154,14 @@ void rf_mbus_task(void) {
 
      // RX active, awaiting SYNC
     case 1:
-      if (bit_is_set(GDO2_PIN,GDO2_BIT)) {
+      if (gdo2_is_set()) {
         RXinfo.state = 2;
       }
       break;
 
     // awaiting pkt len to read
     case 2:
-      if (bit_is_set(GDO0_PIN,GDO0_BIT)) {
+      if (gdo0_is_set()) {
         // Read the 3 first bytes
         halRfReadFifo(RXinfo.pByteIndex, 3, NULL, NULL);
 
@@ -216,7 +222,7 @@ void rf_mbus_task(void) {
 
     // awaiting more data to be read
     case 3:
-      if (bit_is_set(GDO0_PIN,GDO0_BIT)) {
+      if (gdo0_is_set()) {
         // - Length mode -
         // Set fixed packet length mode is less than MAX_FIXED_LENGTH bytes
         if (((RXinfo.bytesLeft) < (MAX_FIXED_LENGTH )) && (RXinfo.format == INFINITE)) {
@@ -236,7 +242,7 @@ void rf_mbus_task(void) {
   }
 
   // END OF PAKET
-  if (!bit_is_set(GDO2_PIN,GDO2_BIT) && RXinfo.state>1) {
+  if (!gdo2_is_set() && RXinfo.state>1) {
     uint8_t rssi = 0;
     uint8_t lqi = 0;
     halRfReadFifo(RXinfo.pByteIndex, (uint8)RXinfo.bytesLeft, &rssi, &lqi);

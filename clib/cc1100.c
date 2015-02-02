@@ -3,7 +3,7 @@
 #include <avr/pgmspace.h>
 #include <avr/eeprom.h>
 
-#include "delay.h"
+#include "arch.h"
 #include "display.h"
 #include "fncollection.h"
 #include "cc1100.h"
@@ -147,15 +147,6 @@ const PROGMEM const uint8_t FASTRF_CFG[EE_CC1100_CFG_SIZE] = {
 
 #endif
 
-uint8_t
-cc1100_sendbyte(uint8_t data)
-{
-  SPDR = data;		        // send byte
-  while (!(SPSR & _BV (SPIF)));	// wait until transfer finished
-  return SPDR;
-}
-
-
 void
 ccInitChip(uint8_t *cfg)
 {
@@ -163,9 +154,13 @@ ccInitChip(uint8_t *cfg)
   moritz_on = 0; //loading this configuration overwrites moritz cfg
 #endif
 
-  EIMSK &= ~_BV(CC1100_INT);                 
+#ifdef XMEGA
+  CC1100_CS_PORT.DIRSET = CC1100_CS_PIN; 
+#else
   SET_BIT( CC1100_CS_DDR, CC1100_CS_PIN ); // CS as output
-
+#endif
+  PININT_OFF;
+  
   CC1100_DEASSERT;                           // Toggle chip select signal
   my_delay_us(30);
   CC1100_ASSERT;
@@ -174,7 +169,7 @@ ccInitChip(uint8_t *cfg)
   my_delay_us(45);
 
   ccStrobe( CC1100_SRES );                   // Send SRES command
-  my_delay_us(100);
+  my_delay_ms(100);
 
   CC1100_ASSERT;                             // load configuration
   cc1100_sendbyte( 0 | CC1100_WRITE_BURST );
@@ -239,7 +234,7 @@ cc_factory_reset(void)
 
 #ifdef MULTI_FREQ_DEVICE
   // check 433MHz version marker and patch default frequency
-  if (!bit_is_set(MARK433_PIN, MARK433_BIT)) {
+  if (is433MHz()) {
     t = EE_CC1100_CFG + 0x0d;
     ewb(t++, 0x10);
     ewb(t++, 0xb0);
@@ -270,7 +265,7 @@ void
 ccTX(void)
 {
   uint8_t cnt = 0xff;
-  EIMSK  &= ~_BV(CC1100_INT);
+  PININT_OFF;
 
   // Going from RX to TX does not work if there was a reception less than 0.5
   // sec ago. Due to CCA? Using IDLE helps to shorten this period(?)
@@ -289,8 +284,8 @@ ccRX(void)
   while(cnt-- &&
         (ccStrobe(CC1100_SRX) & CC1100_STATUS_STATE_BM) != CC1100_STATE_RX)
     my_delay_us(10);
-  EIMSK |= _BV(CC1100_INT);
 
+  PININT_ON;
 }
 
 

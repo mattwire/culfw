@@ -6,7 +6,7 @@
 #include "fncollection.h"
 #include "display.h"
 #include "fht.h"
-#include "delay.h"
+#include "arch.h"
 #include "clock.h"
 #include "cc1100.h"
 

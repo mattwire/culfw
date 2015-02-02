@@ -40,8 +40,12 @@ volatile uint8_t  clock_hsec;
 
 // count & compute in the interrupt, else long runnning tasks would block
 // a "minute" task too long
-ISR(TIMER0_COMPA_vect, ISR_BLOCK)
-{
+#ifdef XMEGA
+SIGNAL(TCC0_CCA_vect) {
+#else
+ISR(TIMER0_COMPA_vect, ISR_BLOCK) {
+#endif
+
 #ifdef HAS_IRTX     //IS IRTX defined ?
   if(! ir_send_data() ) {   //If IR-Sending is in progress, don't receive
 #ifdef HAS_IRRX  //IF also IRRX is define

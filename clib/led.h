@@ -4,11 +4,21 @@
 #define HI8(x)  ((uint8_t)((x) >> 8))
 #define LO8(x)  ((uint8_t)(x))
 
+#include "board.h"
+
+#ifdef XMEGA
+// XMEGA code
+#define led_init() LED_PORT.DIRSET = LED_PIN
+#define LED_TOGGLE() LED_PORT.OUTTGL = LED_PIN
+#define LED_OFF()  LED_PORT.OUTCLR = LED_PIN
+#define LED_ON()   LED_PORT.OUTSET = LED_PIN
+
+#else
+// AVR8 code
+
 #define SET_BIT(PORT, BITNUM) ((PORT) |= (1<<(BITNUM)))
 #define CLEAR_BIT(PORT, BITNUM) ((PORT) &= ~(1<<(BITNUM)))
 #define TOGGLE_BIT(PORT, BITNUM) ((PORT) ^= (1<<(BITNUM)))
-
-#include "board.h"
 
 #ifdef XLED
 #include "xled.h"
@@ -27,4 +37,5 @@
 #define LED_OFF( )   LED_PORT &= ~_BV(LED_PIN)
 #endif
 
+#endif
 #endif
