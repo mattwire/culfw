@@ -1,3 +1,6 @@
 [submodule "LUFA"]
 	path = LUFA
 	url = git@github.com:abcminiuser/lufa.git
+[submodule "Wiznet_ioLibrary"]
+	path = Wiznet_ioLibrary
+	url = git@github.com:Wiznet/ioLibrary_Driver.git

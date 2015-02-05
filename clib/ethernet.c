@@ -301,3 +301,49 @@ udp_appcall()
 #endif
   } 
 }
+
+#ifdef TEST_INIT
+
+// https://github.com/Wiznet
+
+void wizchip_select(void) {
+  Chip_GPIO_SetPinState(LPC_GPIO, 0, 2, false); // SSEL(CS)
+}
+
+void wizchip_deselect(void) {
+  Chip_GPIO_SetPinState(LPC_GPIO, 0, 2, true); // SSEL(CS)
+}
+uint8_t wizchip_read() {
+  uint8_t rb;
+  Chip_SSP_ReadFrames_Blocking(LPC_SSP0, &rb, 1);
+  return rb;
+}
+
+void wizchip_write(uint8_t wb) {
+  Chip_SSP_WriteFrames_Blocking(LPC_SSP0, &wb, 1);
+}
+
+void W5500_Init() {
+  uint8_t tmp;
+  uint8_t memsize[2][8] = { { 2, 2, 2, 2, 2, 2, 2, 2 }, { 2, 2, 2, 2, 2, 2, 2, 2 } };
+  Chip_GPIO_SetPinState(LPC_GPIO, 0, 2, true); // SSEL(CS)
+  Chip_GPIO_SetPinState(LPC_GPIO, 0, 22, false); // N_RESET
+  tmp = 0xFF;
+  while(tmp--);
+  Chip_GPIO_SetPinState(LPC_GPIO, 0, 22, true); // N_RESET
+  reg_wizchip_cs_cbfunc(wizchip_select, wizchip_deselect);
+  reg_wizchip_spi_cbfunc(wizchip_read, wizchip_write);
+  /* wizchip initialize*/
+  if (ctlwizchip(CW_INIT_WIZCHIP, (void*) memsize) == -1) {
+    printf("WIZCHIP Initialized fail.\r\n");
+    while (1);
+  }
+  /*
+    do {
+    if (ctlwizchip(CW_GET_PHYLINK, (void*) &tmp) == -1)
+    printf("Unknown PHY Link stauts.\r\n");
+    } while (tmp == PHY_LINK_OFF);
+  */
+}
+
+#endif

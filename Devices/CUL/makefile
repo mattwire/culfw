@@ -1,5 +1,9 @@
+
 FORMAT = ihex
 OBJDIR = .
+
+MBUS_TARGETS = CUL_V3 CUX
+WIZNET_TARGETS = CUNX
 
 ifeq ($(TARGET), CUX)
 ARCH      = XMEGA
@@ -20,6 +24,8 @@ endif
 
 LUFA_PATH = ../../LUFA/LUFA
 LUFA_OPTS = -DUSE_LUFA_CONFIG_HEADER -IConfig/
+
+WIZNET_PATH = ../../Wiznet_ioLibrary
 
 include $(LUFA_PATH)/Build/lufa_sources.mk
 
@@ -99,9 +105,13 @@ MSG_CLEANING = Cleaning project:
 
 OBJ = $(SRC:%.c=$(OBJDIR)/%.o)
 
-MBUS_TARGETS = CUL_V3 CUX
 ifneq ($(findstring $(TARGET),$(MBUS_TARGETS)),)
 SRC += ../../clib/rf_mbus.c ../../clib/mbus/manchester.c ../../clib/mbus/3outof6.c ../../clib/mbus/mbus_packet.c ../../clib/mbus/crc.c
+endif
+
+ifneq ($(findstring $(TARGET),$(WIZNET_TARGETS)),)
+SRC += $(shell find $(WIZNET_PATH) -name '*.c')
+CFLAGS += $(shell find $(WIZNET_PATH) -maxdepth 2 -type d -not -wholename '*.git*' -printf "-I%p ")
 endif
 
 all:
@@ -113,7 +123,6 @@ all:
 	make TARGET=CUX MCU=atxmega128a4u mostly_clean build size
 
 build: elf hex eep lss sym
-	echo $(LUFA_SRC_USB_DEVICE) $(LUFA_SRC_USBCLASS_DEVICE)
 
 elf: $(TARGET).elf
 hex: $(TARGET).hex

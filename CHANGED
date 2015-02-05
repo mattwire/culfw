@@ -1,3 +1,8 @@
+Version 2.00 (2015-02-02)
+- took over from V1.65
+- added fresh LUFA sources
+- added XMEGA support
+
 Version 1.62 (2014-11-25)
 - Compiling with avr-gcc 4.8.1 instead of 4.3.3 (3.5% smaller code)
 - Clock patches from Ansgar (Forum #24436, reworked)
