@@ -3,7 +3,7 @@ FORMAT = ihex
 OBJDIR = .
 
 MBUS_TARGETS = CUL_V3 CUX
-WIZNET_TARGETS = CUNX
+WIZNET_TARGETS = CUX
 
 ifeq ($(TARGET), CUX)
 ARCH      = XMEGA
@@ -32,6 +32,8 @@ include $(LUFA_PATH)/Build/lufa_sources.mk
 lcARCH = $(shell echo $(ARCH) | tr A-Z a-z)
 
 SRC =           ../../clib/arch_$(lcARCH).c			     \
+		../../clib/culfw.c                             	     \
+		../../clib/ethernet.c                          	     \
 		CUL.c                           	   	     \
 		../../clib/cc1100.c                                  \
 		../../clib/cc1101_pllcheck.c                         \
@@ -47,6 +49,7 @@ SRC =           ../../clib/arch_$(lcARCH).c			     \
 		../../clib/rf_rwe.c                                  \
 		../../clib/intertechno.c                             \
 		../../clib/somfy_rts.c                               \
+		../../clib/kopp-fc.c                                 \
 		../../clib/fht.c                                     \
 		../../clib/fastrf.c                                  \
 		../../clib/rf_asksin.c                               \
@@ -54,7 +57,8 @@ SRC =           ../../clib/arch_$(lcARCH).c			     \
 		../../clib/ttydata.c                                 \
 		../../clib/memory.c                                  \
 		../../clib/Descriptors.c                             \
-		$(LUFA_SRC_USB) $(LUFA_SRC_USBCLASS)
+		../../clib/pigator.c                                 \
+		$(LUFA_SRC_USB) $(LUFA_SRC_USBCLASS) $(LUFA_SRC_TWI)
 
 
 CFLAGS  = -D$(TARGET)
@@ -111,7 +115,7 @@ endif
 
 ifneq ($(findstring $(TARGET),$(WIZNET_TARGETS)),)
 SRC += $(shell find $(WIZNET_PATH) -name '*.c')
-CFLAGS += $(shell find $(WIZNET_PATH) -maxdepth 2 -type d -not -wholename '*.git*' -printf "-I%p ")
+CFLAGS += $(shell find $(WIZNET_PATH) -maxdepth 1 -type d -not -wholename '*.git*' -printf "-I%p ")
 endif
 
 all:
@@ -139,11 +143,11 @@ size:
 
 
 usbprogram:
-	@echo 'specify one of: usbprogram_v2 usbprogram_v2_hm usbprogram_v3 usbprogram_v4 usbprogram_x'
+	@echo 'specify one of: usbprogram_v2 usbprogram_v2_hm usbprogram_v3 usbprogram_v4 usbprogram_cux'
 
-usbprogram_x: TARGET=CUX
-usbprogram_x: MCU=atxmega128a4u
-usbprogram_x: do_usbprogram
+usbprogram_cux: TARGET=CUX
+usbprogram_cux: MCU=atxmega128a4u
+usbprogram_cux: do_usbprogram
 
 usbprogram_v4: TARGET=CUL_V4
 usbprogram_v4: MCU=atmega32u2

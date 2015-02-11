@@ -1,349 +1,315 @@
-#include <avr/pgmspace.h>
-#include <avr/boot.h>
 #include "board.h"
+#ifdef HAS_W5500
+
 #include "ethernet.h"
-#include "fncollection.h"
-#include "stringfunc.h"
-#include "timer.h"
+#include "wizchip_conf.h"
+#include "DHCP/dhcp.h"
+#include "socket.h"
+#include "arch.h"
 #include "display.h"
-#include "delay.h"
-#include "ntp.h"
-#include "mdns_sd.h"
-#include "led.h"
+#include "ttydata.h"
+#include <avr/pgmspace.h>
+#include <stdio.h>
 
-#include "uip_arp.h"
-#include "drivers/interfaces/network.h"
-#include "apps/dhcpc/dhcpc.h"
-#include "delay.h"
+//////////////////////////////////////////////////
+// Socket & Port number definition for Examples //
+//////////////////////////////////////////////////
 
-struct timer periodic_timer, arp_timer;
-static struct uip_eth_addr mac;       // static for dhcpc
-uint8_t eth_debug = 0;
+#define SOCK_DHCP 6
 
-static uint8_t dhcp_state;
+////////////////////////////////////////////////
+// Shared Buffer Definition for Loopback test //
+////////////////////////////////////////////////
+#define DATA_BUF_SIZE 2048
+uint8_t gDATABUF[DATA_BUF_SIZE];
 
-static void set_eeprom_addr(void);
-static void ip_initialized(void);
+///////////////////////////
+// Network Configuration //
+///////////////////////////
+wiz_NetInfo gWIZNETINFO = {
+  .mac = {0xa4, 0x50, 0x55, 0xbb, 0xcd, 0xef},
+  .ip = {10, 10, 11, 101},
+  .sn = {255, 255, 255, 0},
+  .gw = {10, 10, 11, 1},
+  .dns = {0, 0, 0, 0},
+  .dhcp = NETINFO_DHCP
+};
 
-void
-ethernet_init(void)
-{
+rb_t NET_Tx_Buffer;
 
-  // reset Ethernet
-  ENC28J60_RESET_DDR  |= _BV( ENC28J60_RESET_BIT );
-  ENC28J60_RESET_PORT &= ~_BV( ENC28J60_RESET_BIT );
-
-  my_delay_ms( 200 );
-  // unreset Ethernet
-  ENC28J60_RESET_PORT |= _BV( ENC28J60_RESET_BIT );
-
-  my_delay_ms( 200 );
-  network_init();
-  mac.addr[0] = erb(EE_MAC_ADDR+0);
-  mac.addr[1] = erb(EE_MAC_ADDR+1);
-  mac.addr[2] = erb(EE_MAC_ADDR+2);
-  mac.addr[3] = erb(EE_MAC_ADDR+3);
-  mac.addr[4] = erb(EE_MAC_ADDR+4);
-  mac.addr[5] = erb(EE_MAC_ADDR+5);
-  network_set_MAC(mac.addr);
-
-  uip_setethaddr(mac);
-  uip_init();
-  ntp_conn = 0;
-
-  // setup two periodic timers
-  timer_set(&periodic_timer, CLOCK_SECOND / 4);
-  timer_set(&arp_timer, CLOCK_SECOND * 10);
-
-  if(erb(EE_USE_DHCP)) {
-    network_set_led(0x4A6);// LED A: Link Status  LED B: Blink slow
-    dhcpc_init(&mac);
-    dhcp_state = PT_WAITING;
-
-  } else {
-    dhcp_state = PT_ENDED;
-    set_eeprom_addr();
-
-  }
-}
-
-void
-ethernet_reset(void)
-{
-  char buf[21];
-  uint16_t serial = 0;
-
-  buf[1] = 'i';
-  buf[2] = 'd'; strcpy_P(buf+3, PSTR("1"));             write_eeprom(buf);//DHCP
-  buf[2] = 'a'; strcpy_P(buf+3, PSTR("192.168.0.244")); write_eeprom(buf);//IP
-  buf[2] = 'n'; strcpy_P(buf+3, PSTR("255.255.255.0")); write_eeprom(buf);
-  buf[2] = 'g'; strcpy_P(buf+3, PSTR("192.168.0.1"));   write_eeprom(buf);//GW
-  buf[2] = 'p'; strcpy_P(buf+3, PSTR("2323"));          write_eeprom(buf);
-  buf[2] = 'N'; strcpy_P(buf+3, PSTR("0.0.0.0"));       write_eeprom(buf);//==GW
-  buf[2] = 'o'; strcpy_P(buf+3, PSTR("00"));            write_eeprom(buf);//GMT
-
-#ifdef EE_DUDETTE_MAC
-  // check for mac stored during manufacture
-  uint8_t *ee = EE_DUDETTE_MAC;
-  if (erb( ee++ ) == 0xa4)
-    if (erb( ee++ ) == 0x50)
-      if (erb( ee++ ) == 0x55) {
-        buf[2] = 'm'; strcpy_P(buf+3, PSTR("A45055"));        // busware.de OUI range
-        tohex(erb( ee++ ), (uint8_t*)buf+9);
-        tohex(erb( ee++ ), (uint8_t*)buf+11);
-        tohex(erb( ee++ ), (uint8_t*)buf+13);
-        buf[15] = 0;
-        write_eeprom(buf);
-        return;
-      } 
-#endif
-
-  // Generate a "unique" MAC address from the unique serial number
-  buf[2] = 'm'; strcpy_P(buf+3, PSTR("A45055"));        // busware.de OUI range
-#define bsbg boot_signature_byte_get
-
-//  tohex(bsbg(0x0e)+bsbg(0x0f), (uint8_t*)buf+9);
-//  tohex(bsbg(0x10)+bsbg(0x11), (uint8_t*)buf+11);
-//  tohex(bsbg(0x12)+bsbg(0x13), (uint8_t*)buf+13);
-
-  for (uint8_t i = 0x00; i < 0x20; i++) 
-       serial += bsbg(i);
-
-  tohex(0, (uint8_t*)buf+9);
-  tohex((serial>>8) & 0xff, (uint8_t*)buf+11);
-  tohex(serial & 0xff, (uint8_t*)buf+13);
-  
-  buf[15] = 0;
-  write_eeprom(buf);
-}
-
-static void
-display_mac(uint8_t *a)
-{
-  uint8_t cnt = 6;
-  while(cnt--) {
-    DH2(*a++);
-    if(cnt)
-      DC(':');
-  }
-}
-
-static void
-display_ip4(uint8_t *a)
-{
-  uint8_t cnt = 4;
-  while(cnt--) {
-    DU(*a++,1);
-    if(cnt)
-      DC('.');
-  }
-}
-
-void
-eth_func(char *in)
-{
-  if(in[1] == 'i') {
-    ethernet_init();
-
-  } else if(in[1] == 'c') {
-    display_ip4((uint8_t *)uip_hostaddr); DC(' ');
-    display_mac((uint8_t *)uip_ethaddr.addr);
-    DNL();
-
-  } else if(in[1] == 'd') {
-    eth_debug = (eth_debug+1) & 0x3;
-    DH2(eth_debug);
-    DNL();
-
-  } else if(in[1] == 'n') {
-    ntp_sendpacket();
-
-  }
-}
-
-void
-dumppkt(void)
-{
-  uint8_t *a = uip_buf;
-
-  DC('e');DC(' ');
-  DU(uip_len,5);
-
-  display_channel &= ~DISPLAY_TCP;
-  uint8_t ole = log_enabled;
-  log_enabled = 0;
-  DC(' '); DC('d'); DC(' '); display_mac(a); a+= sizeof(struct uip_eth_addr);
-  DC(' '); DC('s'); DC(' '); display_mac(a); a+= sizeof(struct uip_eth_addr);
-  DC(' '); DC('t'); DH2(*a++); DH2(*a++);
-  DNL();
-
-  if(eth_debug > 2)
-    dumpmem(a, uip_len - sizeof(struct uip_eth_hdr));
-  display_channel |= DISPLAY_TCP;
-  log_enabled = ole;
-}
-
-void
-Ethernet_Task(void) {
-     int i;
-
-     ethernet_process();
-     
-     if(timer_expired(&periodic_timer)) {
-	  timer_reset(&periodic_timer);
-	  
-	  for(i = 0; i < UIP_CONNS; i++) {
-	       uip_periodic(i);
-	       if(uip_len > 0) {
-		    uip_arp_out();
-		    network_send();
-	       }
-	  }
-	  
-	  for(i = 0; i < UIP_UDP_CONNS; i++) {
-	       uip_udp_periodic(i);
-	       if(uip_len > 0) {
-		    uip_arp_out();
-		    network_send();
-	       }
-	  }
-
-	  interface_periodic();
-	  
-     }
-     
-     
-     if(timer_expired(&arp_timer)) {
-	  timer_reset(&arp_timer);
-	  uip_arp_timer();
-	  
-     }
-     
-}
-
-void                             // EEPROM Read IP
-erip(void *ip, uint8_t *addr)
-{
-  uip_ipaddr(ip, erb(addr), erb(addr+1), erb(addr+2), erb(addr+3));
-}
-
-static void                             // EEPROM Write IP
-ewip(const u16_t ip[2], uint8_t *addr)
-{
-  uint16_t ip0 = HTONS(ip[0]);
-  uint16_t ip1 = HTONS(ip[1]);
-  ewb(addr+0, ip0>>8);
-  ewb(addr+1, ip0&0xff);
-  ewb(addr+2, ip1>>8);
-  ewb(addr+3, ip1&0xff);
-}
-
-static void
-ip_initialized(void)
-{
-  network_set_led(0x476);// LED A: Link Status  LED B: TX/RX
-  tcplink_init();
-  ntp_init();
-#ifdef HAS_MDNS
-  mdns_init();
-#endif
-}
-
-void
-dhcpc_configured(const struct dhcpc_state *s)
-{
-  if(s == 0) {
-    set_eeprom_addr();
-    return;
-  }
-  ewip(s->ipaddr,         EE_IP4_ADDR);    uip_sethostaddr(s->ipaddr);
-  ewip(s->default_router, EE_IP4_GATEWAY); uip_setdraddr(s->default_router);
-  ewip(s->netmask,        EE_IP4_NETMASK); uip_setnetmask(s->netmask);
-  //resolv_conf(s->dnsaddr);
-  uip_udp_remove(s->conn);
-  ip_initialized();
-}
-
-static void
-set_eeprom_addr()
-{
-  uip_ipaddr_t ipaddr;
-  erip(ipaddr, EE_IP4_ADDR);    uip_sethostaddr(ipaddr);
-  erip(ipaddr, EE_IP4_GATEWAY); uip_setdraddr(ipaddr);
-  erip(ipaddr, EE_IP4_NETMASK); uip_setnetmask(ipaddr);
-  ip_initialized();
-}
-
-void
-tcp_appcall()
-{
-  if(uip_conn->lport == tcplink_port)
-    tcplink_appcall();
-}
-
-void
-udp_appcall()
-{
-  if(dhcp_state != PT_ENDED) {
-    dhcp_state = handle_dhcp();
-
-  } else if(uip_udp_conn &&
-            uip_newdata() &&
-            uip_udp_conn->lport == HTONS(NTP_PORT)) {
-    ntp_digestpacket();
-
-#ifdef HAS_MDNS
-  } else if(uip_udp_conn &&
-            uip_newdata() &&
-            uip_udp_conn->lport == HTONS(MDNS_PORT)) {
-    mdns_new_data();
-
-#endif
-  } 
-}
-
-#ifdef TEST_INIT
-
-// https://github.com/Wiznet
+uint8_t run_user_applications = 0;
 
 void wizchip_select(void) {
-  Chip_GPIO_SetPinState(LPC_GPIO, 0, 2, false); // SSEL(CS)
+  PORTD.OUTCLR = PIN0_bm; 
 }
 
 void wizchip_deselect(void) {
-  Chip_GPIO_SetPinState(LPC_GPIO, 0, 2, true); // SSEL(CS)
+  PORTD.OUTSET = PIN0_bm; 
 }
+
 uint8_t wizchip_read() {
-  uint8_t rb;
-  Chip_SSP_ReadFrames_Blocking(LPC_SSP0, &rb, 1);
-  return rb;
+  return spi_send( 0xff );
 }
 
 void wizchip_write(uint8_t wb) {
-  Chip_SSP_WriteFrames_Blocking(LPC_SSP0, &wb, 1);
+  spi_send( wb );
 }
 
-void W5500_Init() {
+void my_ip_assign(void) {
+  getIPfromDHCP(gWIZNETINFO.ip);
+  getGWfromDHCP(gWIZNETINFO.gw);
+  getSNfromDHCP(gWIZNETINFO.sn);
+  getDNSfromDHCP(gWIZNETINFO.dns);
+  gWIZNETINFO.dhcp = NETINFO_DHCP;
+
+  /* Network initialization */
+  ctlnetwork(CN_SET_NETINFO, (void*) &gWIZNETINFO);
+
+  printf("assigned IP from DHCP\r\n");
+}
+
+/************************************
+ * @ brief Call back for ip Conflict
+ ************************************/
+void my_ip_conflict(void) {
+  printf("CONFLICT IP from DHCP\r\n");
+}
+
+void ethernet_init(void) {
   uint8_t tmp;
   uint8_t memsize[2][8] = { { 2, 2, 2, 2, 2, 2, 2, 2 }, { 2, 2, 2, 2, 2, 2, 2, 2 } };
-  Chip_GPIO_SetPinState(LPC_GPIO, 0, 2, true); // SSEL(CS)
-  Chip_GPIO_SetPinState(LPC_GPIO, 0, 22, false); // N_RESET
-  tmp = 0xFF;
-  while(tmp--);
-  Chip_GPIO_SetPinState(LPC_GPIO, 0, 22, true); // N_RESET
+  
+  wizchip_deselect();
+  PORTD.DIRSET = PIN0_bm; // CS
+
+  PORTD.DIRSET = PIN1_bm; // Reset chip
+  PORTD.OUTCLR = PIN1_bm; 
+  my_delay_ms(10);
+  PORTD.OUTSET = PIN1_bm; 
+
   reg_wizchip_cs_cbfunc(wizchip_select, wizchip_deselect);
   reg_wizchip_spi_cbfunc(wizchip_read, wizchip_write);
+
   /* wizchip initialize*/
   if (ctlwizchip(CW_INIT_WIZCHIP, (void*) memsize) == -1) {
-    printf("WIZCHIP Initialized fail.\r\n");
-    while (1);
+    DS_P(PSTR("WIZCHIP Initialized fail."));
+  } else {
+    DS_P(PSTR("WIZCHIP Initialized success."));
   }
-  /*
-    do {
-    if (ctlwizchip(CW_GET_PHYLINK, (void*) &tmp) == -1)
-    printf("Unknown PHY Link stauts.\r\n");
-    } while (tmp == PHY_LINK_OFF);
-  */
+  DNL();
+
+  // fix NetInfo and set
+  ctlnetwork(CN_SET_NETINFO, (void*) &gWIZNETINFO);
+
+  /* DHCP client Initialization */
+  if(gWIZNETINFO.dhcp == NETINFO_DHCP) {
+    DHCP_init(SOCK_DHCP, gDATABUF);
+    // if you want different action instead default ip assign, update, conflict.
+    // if cbfunc == 0, act as default.
+    reg_dhcp_cbfunc(my_ip_assign, my_ip_assign, my_ip_conflict);
+    run_user_applications = 0; // flag for running user's code
+  } else {
+    run_user_applications = 1; 
+  }
+  
 }
 
+void ethernet_func(char *in) {
+  uint8_t x;
+  uint8_t tmpstr[6] = {0,};
+  
+  if(in[1] == 'i') {
+    ethernet_init();
+    return;
+  }
+
+  if (in[1] == 'p') {
+    if (ctlwizchip(CW_GET_PHYLINK, (void*) &x) == -1) {
+      DS_P(PSTR("Unknown PHY Link stauts.\r\n"));
+      return;
+    }
+
+    DS_P(PSTR("PHY Link status: "));
+
+    if (x == PHY_LINK_OFF)
+      DS_P(PSTR("OFF"));
+
+    if (x == PHY_LINK_ON)
+      DS_P(PSTR("ON"));
+    
+    DNL();
+    return;
+  }
+
+  if (in[1] == 'n') {
+    ctlnetwork(CN_GET_NETINFO, (void*) &gWIZNETINFO);
+    // Display Network Information
+    ctlwizchip(CW_GET_ID,(void*)tmpstr);
+    if(gWIZNETINFO.dhcp == NETINFO_DHCP) printf("\r\n===== %s NET CONF : DHCP =====\r\n",(char*)tmpstr);
+    else printf("\r\n===== %s NET CONF : Static =====\r\n",(char*)tmpstr);
+    printf(" MAC : %02X:%02X:%02X:%02X:%02X:%02X\r\n", gWIZNETINFO.mac[0], gWIZNETINFO.mac[1], gWIZNETINFO.mac[2], gWIZNETINFO.mac[3], gWIZNETINFO.mac[4], gWIZNETINFO.mac[5]);
+    printf(" IP : %d.%d.%d.%d\r\n", gWIZNETINFO.ip[0], gWIZNETINFO.ip[1], gWIZNETINFO.ip[2], gWIZNETINFO.ip[3]);
+    printf(" GW : %d.%d.%d.%d\r\n", gWIZNETINFO.gw[0], gWIZNETINFO.gw[1], gWIZNETINFO.gw[2], gWIZNETINFO.gw[3]);
+    printf(" SN : %d.%d.%d.%d\r\n", gWIZNETINFO.sn[0], gWIZNETINFO.sn[1], gWIZNETINFO.sn[2], gWIZNETINFO.sn[3]);
+
+  }
+
+}
+
+int32_t rxtx_0() {
+  int32_t ret;
+  uint16_t size = 0, sentsize=0;
+
+  if((size = getSn_RX_RSR(0)) > 0) {
+    sentsize = TTY_BUFSIZE - TTY_Rx_Buffer.nbytes;
+    if(size > sentsize) size = sentsize;
+    ret = recv(0, gDATABUF, size);
+    if(ret <= 0) return ret;
+
+    sentsize = 0;
+    while(size != sentsize)
+      rb_put(&TTY_Rx_Buffer, gDATABUF[sentsize++]);
+
+    input_handle_func(DISPLAY_TCP);
+  }
+    
+  size = 0;
+  while (NET_Tx_Buffer.nbytes) {
+    gDATABUF[size++] = rb_get(&NET_Tx_Buffer);
+  }
+
+  sentsize = 0;
+  while(size != sentsize) {
+    ret = send(0, gDATABUF+sentsize,size-sentsize);
+    if(ret < 0) {
+      close(0);
+      return ret;
+    }
+    sentsize += ret; // Don't care SOCKERR_BUSY, because it is zero.
+  }
+
+  return 1;
+}
+
+int32_t rxtx_1() {
+  return 1;
+}
+
+// TCP Server - does keep the sockets listening
+//
+int32_t tcp_server(uint8_t sn, uint16_t port) {
+  int32_t ret;
+  uint16_t size = 0, sentsize=0;
+#ifdef _LOOPBACK_DEBUG_
+  uint8_t destip[4];
+  uint16_t destport;
 #endif
+  switch(getSn_SR(sn)) {
+  case SOCK_ESTABLISHED :
+    if(getSn_IR(sn) & Sn_IR_CON) {
+#ifdef _LOOPBACK_DEBUG_
+      getSn_DIPR(sn, destip);
+      destport = getSn_DPORT(sn);
+      printf("%d:Connected - %d.%d.%d.%d : %d\r\n",sn, destip[0], destip[1], destip[2], destip[3], destport);
+#endif
+      setSn_IR(sn,Sn_IR_CON);
+    }
+
+    if (sn == 0)
+      return rxtx_0();
+
+    if (sn == 1)
+      return rxtx_1();
+    
+    break;
+  case SOCK_CLOSE_WAIT :
+#ifdef _LOOPBACK_DEBUG_
+    printf("%d:CloseWait\r\n",sn);
+#endif
+    if((ret=disconnect(sn)) != SOCK_OK) return ret;
+#ifdef _LOOPBACK_DEBUG_
+    printf("%d:Socket closed\r\n",sn);
+#endif
+    break;
+  case SOCK_INIT :
+#ifdef _LOOPBACK_DEBUG_
+    printf("%d:Listen, TCP server, port [%d]\r\n",sn, port);
+#endif
+    if( (ret = listen(sn)) != SOCK_OK) return ret;
+    break;
+  case SOCK_CLOSED:
+#ifdef _LOOPBACK_DEBUG_
+    printf("%d:TCP server start\r\n",sn);
+#endif
+    if((ret=socket(sn, Sn_MR_TCP, port, 0x00)) != sn)
+      //if((ret=socket(sn, Sn_MR_TCP, port, Sn_MR_ND)) != sn)
+      return ret;
+#ifdef _LOOPBACK_DEBUG_
+    printf("%d:Socket opened\r\n",sn);
+#endif
+    break;
+  default:
+    break;
+  }
+
+  return 1;
+}
+
+void ethernet_task(void) {
+
+  if(gWIZNETINFO.dhcp == NETINFO_DHCP) {
+    // make and keep DHCP happy ...
+    switch(DHCP_run()) {
+    case DHCP_IP_ASSIGN:
+    case DHCP_IP_CHANGED:
+      /* If this block empty, act with default_ip_assign & default_ip_update */
+      //
+      // This example calls my_ip_assign in the two case.
+      //
+      // Add to ...
+      //
+      break;
+    case DHCP_IP_LEASED:
+      //
+      // TODO: insert user's code here
+      run_user_applications = 1;
+      //
+      break;
+    case DHCP_FAILED:
+      /* ===== Example pseudo code ===== */
+      // The below code can be replaced your code or omitted.
+      // if omitted, retry to process DHCP
+      /*
+      my_dhcp_retry++;
+      if(my_dhcp_retry > MY_MAX_DHCP_RETRY) {
+	gWIZNETINFO.dhcp = NETINFO_STATIC;
+	DHCP_stop(); // if restart, recall DHCP_init()
+	printf(">> DHCP %d Failed\r\n", my_dhcp_retry);
+	Net_Conf();
+	Display_Net_Conf(); // print out static netinfo to serial
+	my_dhcp_retry = 0;
+      }
+      */
+      break;
+      /*
+    case DHCP_RUNNING:
+      DC('R');
+      break;
+    case DHCP_STOPPED:
+      DC('S');
+      break;
+      */
+    default:
+      break;
+    }
+  }
+
+  if (!run_user_applications)
+    return;
+
+  tcp_server( 0, 2323 );
+}
+	
+
+#endif
+

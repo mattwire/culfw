@@ -36,37 +36,29 @@ void cpu_set_clock(void) {
   PMIC.CTRL = PMIC_LOLVLEN_bm | PMIC_MEDLVLEN_bm | PMIC_HILVLEN_bm;
 
   // setup watchdog
-  uint8_t temp = WDT_ENABLE_bm | WDT_CEN_bm | WDT_PER_1KCLK_gc;
+  uint8_t temp = WDT_ENABLE_bm | WDT_CEN_bm | WDT_PER_2KCLK_gc;
   CCP = CCP_IOREG_gc;
   WDT.CTRL = temp;
   
   /* Wait for WD to synchronize with new settings. */
-  // while(WDT_IsSyncBusy());
+  while(WDT.STATUS & WDT_SYNCBUSY_bm);
     
 }
 
+void(* call_bootloader)(void) = (void (*)(void))(BOOT_SECTION_START/2+0x1FC/2);
+
 void start_bootloader(void) {
-  
-  /* Jump to 0x401FC = BOOT_SECTION_START + 0x1FC which is
-   * the stated location of the bootloader entry (AVR1916).
-   * Note the address used is the word address = byte addr/2.
-   * My ASM fu isn't that strong, there are probably nicer
-   * ways to do this with, yennow, defined symbols .. */
-  
-  asm ("ldi r30, 0xFE\n"  /* Low byte to ZL */
-       "ldi r31, 0x00\n" /* mid byte to ZH */
-       "ldi r24, 0x02\n" /* high byte to EIND which lives */
-       "out 0x3c, r24\n" /* at addr 0x3c in I/O space */
-       "eijmp":  :: "r24", "r30", "r31");
-  
+  EIND = BOOT_SECTION_START>>17;
+  call_bootloader();
 }
 
 void check_bootloader_req(void) {
   // if we had been restarted by watchdog check the REQ BootLoader byte in the
   // EEPROM ...
   if (bit_is_set(RST.STATUS,3) && erb(EE_REQBL)) {
+    RST.STATUS |= _BV(3);
     ewb( EE_REQBL, 0 ); // clear flag
-    //    start_bootloader();
+    start_bootloader();  
   }
 }
 
@@ -129,9 +121,11 @@ void my_delay_us(uint16_t cnt) {
   TCE0.INTFLAGS |= 1;
   TCD0.INTCTRLA = 0x01;					        //enable OVFINT
   TCE0.CTRLA = TC_CLKSEL_EVCH0_gc;
-  while (1) 
+  while (1) {
     if (TCE0.INTFLAGS & 1)
       break;
+    wdt_reset();
+  }
 
   TCE0.CTRLA = 0;
   

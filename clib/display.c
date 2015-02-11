@@ -17,8 +17,8 @@
 #ifdef HAS_PRIVATE_CHANNEL
 #include "private_channel.h"
 #endif
-#ifdef HAS_ETHERNET
-#include "tcplink.h"
+#ifdef HAS_W5500
+#include "ethernet.h"
 #endif
 #ifdef HAS_DOGM
 #include "dogm16x.h"
@@ -78,9 +78,9 @@ display_char(char data)
 # define buffer_used()
 #endif
 
-#ifdef HAS_ETHERNET
+#ifdef HAS_W5500
   if(display_channel & DISPLAY_TCP)
-    tcp_putchar( data );
+    rb_put(&NET_Tx_Buffer, data);
 #endif
 
 #ifdef HAS_PRIVATE_CHANNEL

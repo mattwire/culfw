@@ -4,6 +4,9 @@
 #include "Descriptors.h"
 #include <LUFA/Drivers/USB/USB.h>
 
+USB_ClassInfo_CDC_Device_t VirtualSerial1_CDC_Interface;
+USB_ClassInfo_CDC_Device_t VirtualSerial2_CDC_Interface;
+
 void usb_init(void);
 void usb_task(void);
 void usb_rxtx(void);

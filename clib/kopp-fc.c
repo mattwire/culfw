@@ -58,7 +58,7 @@
 #include <avr/io.h>
 #include <avr/wdt.h>			// for Watchdog Reset
 #include "cc1100.h"
-#include "delay.h"
+#include "arch.h"
 #include "rf_receive.h"
 #include "display.h"
 #include "clock.h"
@@ -148,8 +148,13 @@ const PROGMEM const uint8_t CC1100_Kopp_CFG[EE_CC1100_CFG_SIZE] = {
 void
 kopp_fc_init(void)
 {
+#ifdef XMEGA
+  CC1100_CS_PORT.DIRSET = CC1100_CS_PIN; 
+  CC1100_IN_PORT.DIRCLR = CC1100_IN_PIN; 
+#else
   EIMSK &= ~_BV(CC1100_INT);                 	// disable INT - we'll poll...
   SET_BIT( CC1100_CS_DDR, CC1100_CS_PIN );   	// CS as output
+#endif
 
 // Toggle chip select signal (why?)
   CC1100_DEASSERT;                            	// Chip Select InActiv

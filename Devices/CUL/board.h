@@ -37,6 +37,7 @@
 #  define HAS_HOERMANN
 #  define HAS_MEMFN
 #  define HAS_SOMFY_RTS
+#  define HAS_KOPP_FC
 #endif
 
 #if defined(CUL_V4)
@@ -45,6 +46,8 @@
 
 #if defined(CUX)
 #  define TTY_BUFSIZE          128
+#  define HAS_PIGATOR
+#  define HAS_W5500
 #endif
 
 #if defined(CUL_V3) || defined(CUX)

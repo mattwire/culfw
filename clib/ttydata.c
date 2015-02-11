@@ -4,7 +4,6 @@
 
 void (*input_handle_func)(uint8_t channel);
 
-
 rb_t TTY_Tx_Buffer;
 rb_t TTY_Rx_Buffer;
 static char cmdbuf[TTY_BUFSIZE+1];

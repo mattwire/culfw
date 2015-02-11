@@ -28,6 +28,9 @@
 #ifdef HAS_VZ
 #include "vz.h"
 #endif
+#ifdef HAS_W5500
+#include "DHCP/dhcp.h"                  // in need for timing here ...
+#endif
 
 #if defined (HAS_IRRX) || defined (HAS_IRTX)
 #include "ir.h"
@@ -180,6 +183,10 @@ Minute_Task(void)
     return;
   clock_hsec = 0;       // once per second from here on.
 
+#ifdef HAS_W5500
+  DHCP_time_handler();
+#endif
+  
 #ifndef XLED
   if(led_mode & 2)
     LED_TOGGLE();
