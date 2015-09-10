@@ -5,6 +5,7 @@
 #include "usb.h"
 #include "ttydata.h"
 #include "display.h"
+#include "pigator.h"
 
 USB_ClassInfo_CDC_Device_t VirtualSerial1_CDC_Interface = {
   .Config =
@@ -61,7 +62,6 @@ void
 usb_init(void) {
   USB_Init();
 
-  GlobalInterruptEnable();
 }
 
 void
@@ -126,5 +126,15 @@ void EVENT_USB_Device_ControlRequest(void)
   CDC_Device_ProcessControlRequest(&VirtualSerial1_CDC_Interface);
   CDC_Device_ProcessControlRequest(&VirtualSerial2_CDC_Interface);
 }
+
+/*
+void EVENT_CDC_Device_LineEncodingChanged(USB_ClassInfo_CDC_Device_t* const CDCInterfaceInfo) {
+
+  if (CDCInterfaceInfo->Config.ControlInterfaceNumber == INTERFACE_ID_CDC1_CCI) {
+  } else if (CDCInterfaceInfo->Config.ControlInterfaceNumber == INTERFACE_ID_CDC2_CCI) {
+  }
+  
+}
+*/
 
 #endif

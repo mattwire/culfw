@@ -6,26 +6,44 @@
 #include <LUFA/Drivers/Peripheral/Serial.h>
 #include <LUFA/Drivers/Misc/RingBuffer.h>
 
+#ifdef HAS_USB
 #include "Descriptors.h"
 #include "usb.h"
+#endif
+
 #include "arch.h"
 #include "string.h"
 #include "display.h"
 #include "led.h"
 #include <avr/pgmspace.h>
 
-#define USART USARTD0
-#define USART_BUF_SIZE 128
+#ifdef HAS_ESP8266
+#include "esp8266.h"
+#endif
 
-static RingBuffer_t USBtoUSART_Buffer;
-static uint8_t      USBtoUSART_Buffer_Data[USART_BUF_SIZE];
-static RingBuffer_t USARTtoUSB_Buffer;
-static uint8_t      USARTtoUSB_Buffer_Data[USART_BUF_SIZE];
+#define USART PIG_UART
+#define USART_BUF_SIZE 256
+#define TWI   PIG_TWI
+
+RingBuffer_t toPIM_Buffer;
+uint8_t      toPIM_Buffer_Data[USART_BUF_SIZE];
+RingBuffer_t PIMtoUSB_Buffer;
+uint8_t      PIMtoUSB_Buffer_Data[USART_BUF_SIZE];
 
 Pigator_Module_t *Pigator_Module = NULL;
 
-#define EEP_ADDR       0xA0
+#define EEP_ADDR  0xA0
+#ifdef PIG_FIXED
+char EEP_MAGIC[10] = PIG_FIXED;
+#else
 static char EEP_MAGIC[10];
+#endif
+
+#ifdef PIG_STACKED
+static char mycmd[256];
+static uint8_t mypos = 0;
+static uint8_t myEOL = 0;
+#endif
 
 void(* pig_mod_task)(void) = NULL;
 void(* pig_mod_init)(void) = NULL;
@@ -34,23 +52,23 @@ void(* pig_mod_bootload)(void) = NULL;
 
 void pig_reset_low(uint8_t on) {
 
-  PORTA.DIRSET = PIN0_bm;
+  PIG_RESET_PORT.DIRSET = PIG_RESET_PIN;
 
   if (on) {
-    PORTA.OUTCLR = PIN0_bm;
+    PIG_RESET_PORT.OUTCLR = PIG_RESET_PIN;
   } else
-    PORTA.OUTSET = PIN0_bm;
+    PIG_RESET_PORT.OUTSET = PIG_RESET_PIN;
   
 }
 
 void pig_reset_high(uint8_t on) {
 
-  PORTA.DIRSET = PIN0_bm;
+  PIG_RESET_PORT.DIRSET = PIG_RESET_PIN;
 
   if (on) {
-    PORTA.OUTSET = PIN0_bm;
+    PIG_RESET_PORT.OUTSET = PIG_RESET_PIN;
   } else
-    PORTA.OUTCLR = PIN0_bm;
+    PIG_RESET_PORT.OUTCLR = PIG_RESET_PIN;
   
 }
 
@@ -63,15 +81,16 @@ void reset_module(void) {
   }
 }
 
-void pig_csm_bootload(void) {
-  PORTA.DIRSET = PIN3_bm;
+void pig_bsel_low_bootload(void) {
+  PIG_BSEL_PORT.DIRSET = PIG_BSEL_PIN;
   pig_mod_reset( 1 );
-  PORTA.OUTCLR = PIN3_bm;
+
+  PIG_BSEL_PORT.OUTCLR = PIG_BSEL_PIN;
   my_delay_ms(10);
   pig_mod_reset( 0 );
   my_delay_ms(500);
-  PORTA.OUTSET = PIN3_bm;
-  PORTA.DIRCLR = PIN3_bm;
+  PIG_BSEL_PORT.OUTSET = PIG_BSEL_PIN;
+  PIG_BSEL_PORT.DIRCLR = PIG_BSEL_PIN;
 }
 
 void pig_serialfwd_init(void) {
@@ -79,40 +98,83 @@ void pig_serialfwd_init(void) {
   if (!Pigator_Module)
     return;
 
-  reset_module();
-  
-  RingBuffer_InitBuffer(&USBtoUSART_Buffer, USBtoUSART_Buffer_Data, sizeof(USBtoUSART_Buffer_Data));
-  RingBuffer_InitBuffer(&USARTtoUSB_Buffer, USARTtoUSB_Buffer_Data, sizeof(USARTtoUSB_Buffer_Data));
-
   // USART RX/TX 1
   /* PIN3 (TXD0) as output. */
-  PORTD.DIRSET = PIN3_bm;
-  /* PC2 (RXD0) as input. */
-  PORTD.DIRCLR = PIN2_bm;
+  PIG_UART_PORT.DIRSET = PIN3_bm;
+  /* PIN2 (RXD0) as input. */
+  PIG_UART_PORT.DIRCLR = PIN2_bm;
   
-  Serial_Init(&USART, Pigator_Module->Baud, false);
+  mySerial_Init(&USART, Pigator_Module->Baud);
   USART_RxdInterruptLevel_Set(&USART, USART_RXCINTLVL_LO_gc);
+
+  RingBuffer_InitBuffer(&toPIM_Buffer, toPIM_Buffer_Data, USART_BUF_SIZE);
+  RingBuffer_InitBuffer(&PIMtoUSB_Buffer, PIMtoUSB_Buffer_Data, USART_BUF_SIZE);
+
+  reset_module();
 }
+
+void toPIMBuffer(uint8_t in) {
+  if (RingBuffer_IsFull(&toPIM_Buffer))
+    return;
+  
+  RingBuffer_Insert(&toPIM_Buffer, in);
+  USART_DreInterruptLevel_Set(&USART, USART_DREINTLVL_LO_gc);
+}
+
+#ifdef PIG_STACKED
+void pig_stacker_task(void) {
+  uint8_t data;
+
+  // PIGATOR => Host
+  uint16_t BufferCount = RingBuffer_GetCount(&PIMtoUSB_Buffer);
+  if (BufferCount) {
+    
+    while (BufferCount--) {
+      data = RingBuffer_Remove(&PIMtoUSB_Buffer);
+      
+      // EOL ?
+      if (data == 13 || data == 10) {
+	
+	if (mypos) {
+	  mycmd[mypos] = 0;
+	  
+	  DC( '*' );
+	  DS( mycmd );
+	  DNL();
+	}
+	
+	mypos = 0;
+	mycmd[mypos] = 0;
+	
+      } else 
+	mycmd[mypos++] = data;
+      
+    }
+  }
+  
+}
+#endif
 
 void pig_serialfwd_task(void) {
 
+#ifdef HAS_USB
+
   // USB => PIGATOR
-  while(1) {
-    if (RingBuffer_IsFull(&USBtoUSART_Buffer))
+  while(USB_IsConnected) {
+    if (RingBuffer_IsFull(&toPIM_Buffer))
       break;
     
     int16_t ReceivedByte = CDC_Device_ReceiveByte(&VirtualSerial2_CDC_Interface);
     if (ReceivedByte < 0)
       break;
-    
+
     /* Store received byte into the USART transmit buffer */
-    RingBuffer_Insert(&USBtoUSART_Buffer, ReceivedByte);
-    USART_DreInterruptLevel_Set(&USART, USART_DREINTLVL_LO_gc);
+    toPIMBuffer( ReceivedByte );
   }
-  
+
   // PIGATOR => USB
-  uint16_t BufferCount = RingBuffer_GetCount(&USARTtoUSB_Buffer);
-  if (BufferCount) {
+  uint16_t BufferCount = RingBuffer_GetCount(&PIMtoUSB_Buffer);
+  if (USB_IsConnected && BufferCount) {
     Endpoint_SelectEndpoint(VirtualSerial2_CDC_Interface.Config.DataINEndpoint.Address);
     
     /* Check if a packet is already enqueued to the host - if so, we shouldn't try to send more data
@@ -127,25 +189,50 @@ void pig_serialfwd_task(void) {
       while (BytesToSend--) {
 
 	/* Try to send the next byte of data to the host, abort if there is an error without dequeuing */
-	if (CDC_Device_SendByte(&VirtualSerial2_CDC_Interface, RingBuffer_Peek(&USARTtoUSB_Buffer)) != ENDPOINT_READYWAIT_NoError)
+	if (CDC_Device_SendByte(&VirtualSerial2_CDC_Interface, RingBuffer_Peek(&PIMtoUSB_Buffer)) != ENDPOINT_READYWAIT_NoError)
 	  break;
 	
 	/* Dequeue the already sent byte from the buffer now we have confirmed that no transmission error occurred */
-	RingBuffer_Remove(&USARTtoUSB_Buffer);
+	RingBuffer_Remove(&PIMtoUSB_Buffer);
       }
     }
   }
+
+#endif
+
 }
 
 Pigator_Module_t modules[] = {
 
+#ifdef PIG_STACKED
+
+  {
+    .Magic           = "CSM",
+    .Baud            = 38400,
+    .cb_mod_init     = pig_serialfwd_init,
+    .cb_mod_task     = pig_stacker_task,
+    .cb_mod_reset    = pig_reset_low,
+    .cb_mod_bootload = NULL,
+  },
+
+#else
+  
   {
     .Magic           = "CSM",
     .Baud            = 38400,
     .cb_mod_init     = pig_serialfwd_init,
     .cb_mod_task     = pig_serialfwd_task,
     .cb_mod_reset    = pig_reset_low,
-    .cb_mod_bootload = pig_csm_bootload,
+    .cb_mod_bootload = pig_bsel_low_bootload,
+  },
+
+  {
+    .Magic           = "ESP8266",
+    .Baud            = 9600,
+    .cb_mod_init     = pig_serialfwd_init,
+    .cb_mod_task     = pig_serialfwd_task,
+    .cb_mod_reset    = pig_reset_low,
+    .cb_mod_bootload = pig_bsel_low_bootload,
   },
 
   {
@@ -167,6 +254,15 @@ Pigator_Module_t modules[] = {
   },
 
   {
+    .Magic           = "DS2480",
+    .Baud            = 9600,
+    .cb_mod_init     = pig_serialfwd_init,
+    .cb_mod_task     = pig_serialfwd_task,
+    .cb_mod_reset    = pig_reset_low,
+    .cb_mod_bootload = NULL,
+  },
+
+  {
     .Magic           = "TCM310",
     .Baud            = 57600,
     .cb_mod_init     = pig_serialfwd_init,
@@ -174,7 +270,9 @@ Pigator_Module_t modules[] = {
     .cb_mod_reset    = pig_reset_high,
     .cb_mod_bootload = NULL,
   },
-
+  
+#endif
+  
   { .Magic        = "\x00" } // EOL
 };
 
@@ -183,21 +281,31 @@ void pigator_init(void) {
 
   Serial_Disable(&USART);
   
-  TWI_Init(&TWIE, TWI_BAUD_FROM_FREQ(100000));
-  
-  // Enable internal pull-up on PC0, PC1.. Uncomment if you don't have external pullups
-  PORTCFG.MPCMASK = 0x03; // Configure several PINxCTRL registers at the same time
-  PORTE.PIN0CTRL = (PORTE.PIN0CTRL & ~PORT_OPC_gm) | PORT_OPC_PULLUP_gc; //Enable pull-up to get a defined level on the switches
-
-  memset(EEP_MAGIC, 0, sizeof(EEP_MAGIC));
   Pigator_Module   = NULL;
   pig_mod_init     = NULL;
   pig_mod_task     = NULL;
   pig_mod_reset    = NULL;
   pig_mod_bootload = NULL;
 
+#ifdef PIG_FIXED
+  if (1) {
+#else
+  
+  memset(EEP_MAGIC, 0, sizeof(EEP_MAGIC));
+
+  TWI_Init(&TWI, TWI_BAUD_FROM_FREQ(100000));
+  TWI.CTRL |= TWI_SDAHOLD_50NS_gc; // Onewire PIM w/ level changers requires this
+
+#ifdef PIG_I2C_PULL
+  // Enable internal pull-up on PIN0, PIN1..
+  PORTCFG.MPCMASK = 0x03; // Configure several PINxCTRL registers at the same time
+  PIG_I2C_PULL.PIN0CTRL = (PIG_I2C_PULL.PIN0CTRL & ~PORT_OPC_gm) | PORT_OPC_PULLUP_gc; //Enable pull-up to get a defined level on the switches
+#endif  
+
   const uint8_t EEPAddress = 0;
-  if (TWI_ReadPacket(&TWIE, EEP_ADDR, 10, &EEPAddress, sizeof(EEPAddress), (uint8_t *)EEP_MAGIC, sizeof(EEP_MAGIC)-1) == TWI_ERROR_NoError) {
+  if (TWI_ReadPacket(&TWI, EEP_ADDR, 10, &EEPAddress, sizeof(EEPAddress), (uint8_t *)EEP_MAGIC, sizeof(EEP_MAGIC)-1) == TWI_ERROR_NoError) {
+
+#endif    
 
     // Find Magic in available modules
     for(uint8_t idx = 0; ; idx++) {
@@ -220,7 +328,7 @@ void pigator_init(void) {
 
   if (!Pigator_Module)
     return;
-  
+
   pig_mod_init     = Pigator_Module->cb_mod_init;
   pig_mod_task     = Pigator_Module->cb_mod_task;
   pig_mod_reset    = Pigator_Module->cb_mod_reset;
@@ -254,19 +362,44 @@ void pigator_func(char *in) {
   }
 }
 
-ISR(USARTD0_RXC_vect) {
-  if (!(RingBuffer_IsFull(&USARTtoUSB_Buffer)))
-    RingBuffer_Insert(&USARTtoUSB_Buffer, Serial_ReceiveByte(&USART));
+void pigator_stack_func(char *in) {
+  // downlink message to PIM by removing one '*'
+  uint8_t i = 1;
+
+  while (in[i]) { 
+    RingBuffer_Insert(&toPIM_Buffer, in[i++]);
+  }
+
+  RingBuffer_Insert(&toPIM_Buffer, 13); // add CR
+  RingBuffer_Insert(&toPIM_Buffer, 10); // add NL
+  
+  USART_DreInterruptLevel_Set(&USART, USART_DREINTLVL_LO_gc);
 }
 
-ISR(USARTD0_DRE_vect) {
+ISR(PIG_RXC_vect) {
+
+  USART.STATUS = USART_RXCIF_bm;
+
+  uint8_t data = USART.DATA;
+  
+  if (!(RingBuffer_IsFull(&PIMtoUSB_Buffer)))
+    RingBuffer_Insert(&PIMtoUSB_Buffer, data);
+
+#ifdef HAS_ESP8266
+  rb_put(&ESP_Rx_Buffer, data);
+#endif
+  
+}
+
+ISR(PIG_DRE_vect) {
 
   /* Load the next byte from the USART transmit buffer into the USART if transmit buffer space is available 
      or disable interrupt */
-  if ((RingBuffer_IsEmpty(&USBtoUSART_Buffer))) {
+  
+  if ((RingBuffer_IsEmpty(&toPIM_Buffer))) {
     USART_DreInterruptLevel_Set(&USART, USART_DREINTLVL_OFF_gc);
-  } else 
-    Serial_SendByte(&USART, RingBuffer_Remove(&USBtoUSART_Buffer));
+  } else
+    USART.DATA = RingBuffer_Remove(&toPIM_Buffer);
 }
 
 #endif

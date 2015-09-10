@@ -38,6 +38,11 @@ uint8_t ir_ticks = 0;
 uint8_t ir_ticks_thrd = 0;
 #endif
 
+#ifdef HAS_RGBLED
+volatile uint8_t  led_ticks;
+int16_t led_f;
+#endif
+
 volatile uint32_t ticks;
 volatile uint8_t  clock_hsec;
 
@@ -60,8 +65,15 @@ ISR(TIMER0_COMPA_vect, ISR_BLOCK) {
 #endif
 
 #if defined (HAS_IRTX) || defined (HAS_IRRX)
-  // if IRRX is compiled in, timer runs 125x faster ... 
-  if (++ir_ticks<125) 
+#ifdef HAS_RGBLED
+  led_ticks++;
+  if (led_on && (rgb_led[0]-led_fade)>led_ticks ) { RLED_PORT.OUTCLR = RLED_PIN; } else RLED_PORT.OUTSET = RLED_PIN;
+  if (led_on && (rgb_led[1]-led_fade)>led_ticks ) { GLED_PORT.OUTCLR = GLED_PIN; } else GLED_PORT.OUTSET = GLED_PIN;
+  if (led_on && (rgb_led[2]-led_fade)>led_ticks ) { BLED_PORT.OUTCLR = BLED_PIN; } else BLED_PORT.OUTSET = BLED_PIN;
+#endif  
+
+  // if IRRX is compiled in, timer runs 125..160x faster ... 
+  if (++ir_ticks<F_INTERRUPTS/125) 
     return;
     
   ir_ticks = 0;
@@ -142,11 +154,20 @@ Minute_Task(void)
 
   // 125Hz
 #ifdef XLED
-  if ((ticks % 12) == 0) {
-    if ( xled_pattern & _BV(xled_pos++) ) {
-      LED_ON();
-    } else {
-      LED_OFF();
+  if (led_mode>=0x10) {
+    led_on = 1;
+    if ((ticks % (led_mode-0x10)) == 0) {
+      if (++led_f>127)
+	led_f = -127;
+      led_fade = 2 * abs( led_f );
+    }
+  } else {
+    if ((ticks % 12) == 0) {
+      if ( xled_pattern & _BV(xled_pos++) ) {
+	LED_ON();
+      } else {
+	LED_OFF();
+      }
     }
   }
   xled_pos &= 15;

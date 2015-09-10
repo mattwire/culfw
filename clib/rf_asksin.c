@@ -7,6 +7,7 @@
 #include "rf_receive.h"
 #include "display.h"
 #include "cc1101_pllcheck.h"
+#include "clock.h"
 
 #include "rf_asksin.h"
 
@@ -204,6 +205,7 @@ asksin_send(char *in)
   uint8_t msg[MAX_ASKSIN_MSG];
   uint8_t ctl;
   uint8_t l;
+  uint32_t ts1, ts2;
 
   uint8_t hblen = fromhex(in+1, msg, MAX_ASKSIN_MSG-1);
 
@@ -229,8 +231,17 @@ asksin_send(char *in)
   msg[l] = msg[l] ^ ctl;
 
   // enable TX, wait for CCA
+  get_timestamp(&ts1);
   do {
     ccStrobe(CC1100_STX);
+    if (cc1100_readReg(CC1100_MARCSTATE) != MARCSTATE_TX) {
+      get_timestamp(&ts2);
+      if (((ts2 > ts1) && (ts2 - ts1 > ASKSIN_WAIT_TICKS_CCA)) ||
+          ((ts2 < ts1) && (ts1 + ASKSIN_WAIT_TICKS_CCA < ts2))) {
+        DS_P(PSTR("ERR:CCA\r\n"));
+        goto out;
+      }
+    }
   } while (cc1100_readReg(CC1100_MARCSTATE) != MARCSTATE_TX);
 
   if (ctl & (1 << 4)) { // BURST-bit set?
@@ -255,6 +266,7 @@ asksin_send(char *in)
   while(cc1100_readReg( CC1100_MARCSTATE ) == MARCSTATE_TX)
     ;
 
+out:
   if (cc1100_readReg( CC1100_MARCSTATE ) == MARCSTATE_TXFIFO_UNDERFLOW) {
       ccStrobe( CC1100_SFTX  );
       ccStrobe( CC1100_SIDLE );

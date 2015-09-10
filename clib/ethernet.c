@@ -11,6 +11,11 @@
 #include <avr/pgmspace.h>
 #include <stdio.h>
 
+#ifdef HAS_MQTT
+#include "mqtt.h"
+#endif
+
+
 //////////////////////////////////////////////////
 // Socket & Port number definition for Examples //
 //////////////////////////////////////////////////
@@ -27,12 +32,12 @@ uint8_t gDATABUF[DATA_BUF_SIZE];
 // Network Configuration //
 ///////////////////////////
 wiz_NetInfo gWIZNETINFO = {
-  .mac = {0xa4, 0x50, 0x55, 0xbb, 0xcd, 0xef},
+  .mac = {0xa4, 0x50, 0x55, 0xbb, 0xcd, 0x1f},
   .ip = {10, 10, 11, 101},
   .sn = {255, 255, 255, 0},
   .gw = {10, 10, 11, 1},
   .dns = {0, 0, 0, 0},
-  .dhcp = NETINFO_DHCP
+  //  .dhcp = NETINFO_DHCP
 };
 
 rb_t NET_Tx_Buffer;
@@ -40,11 +45,11 @@ rb_t NET_Tx_Buffer;
 uint8_t run_user_applications = 0;
 
 void wizchip_select(void) {
-  PORTD.OUTCLR = PIN0_bm; 
+  W5500_CS_PORT.OUTCLR = W5500_CS_PIN; 
 }
 
 void wizchip_deselect(void) {
-  PORTD.OUTSET = PIN0_bm; 
+  W5500_CS_PORT.OUTSET = W5500_CS_PIN; 
 }
 
 uint8_t wizchip_read() {
@@ -80,12 +85,12 @@ void ethernet_init(void) {
   uint8_t memsize[2][8] = { { 2, 2, 2, 2, 2, 2, 2, 2 }, { 2, 2, 2, 2, 2, 2, 2, 2 } };
   
   wizchip_deselect();
-  PORTD.DIRSET = PIN0_bm; // CS
+  W5500_CS_PORT.DIRSET = W5500_CS_PIN; // CS
 
-  PORTD.DIRSET = PIN1_bm; // Reset chip
-  PORTD.OUTCLR = PIN1_bm; 
+  W5500_RESET_PORT.DIRSET = W5500_RESET_PIN; // Reset chip
+  W5500_RESET_PORT.OUTCLR = W5500_RESET_PIN; 
   my_delay_ms(10);
-  PORTD.OUTSET = PIN1_bm; 
+  W5500_RESET_PORT.OUTSET = W5500_RESET_PIN; 
 
   reg_wizchip_cs_cbfunc(wizchip_select, wizchip_deselect);
   reg_wizchip_spi_cbfunc(wizchip_read, wizchip_write);
@@ -154,6 +159,21 @@ void ethernet_func(char *in) {
 
   }
 
+#ifdef HAS_MQTT
+
+  if (in[1] == 'q') {
+    mqtt_init();
+  }
+
+  if (in[1] == 'Q') {
+    mqtt_publish( "Moin", "Cool", 0, 0 );
+  }
+
+  if (in[1] == 'b')
+    mqtt_subscribe("busware", 0);
+  
+#endif
+
 }
 
 int32_t rxtx_0() {
@@ -192,7 +212,10 @@ int32_t rxtx_0() {
 }
 
 int32_t rxtx_1() {
+#ifdef HAS_PIGATOR
+#else 
   return 1;
+#endif
 }
 
 // TCP Server - does keep the sockets listening
@@ -308,6 +331,9 @@ void ethernet_task(void) {
     return;
 
   tcp_server( 0, 2323 );
+#ifdef HAS_PIGATOR
+  tcp_server( 0, 2324 );
+#endif
 }
 	
 

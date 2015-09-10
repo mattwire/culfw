@@ -35,8 +35,9 @@
  *  the device's capabilities and functions.
  */
 
-#include "Descriptors.h"
 #include "board.h"
+#ifdef HAS_USB
+#include "Descriptors.h"
 #include "arch.h"
 
 /** Device descriptor structure. This descriptor, located in FLASH memory, describes the overall
@@ -367,3 +368,4 @@ uint16_t CALLBACK_USB_GetDescriptor(const uint16_t wValue,
 	return Size;
 }
 
+#endif

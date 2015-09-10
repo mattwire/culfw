@@ -3,7 +3,8 @@ FORMAT = ihex
 OBJDIR = .
 
 MBUS_TARGETS = CUL_V3 CUX
-WIZNET_TARGETS = CUX
+WIZNET_TARGETS = CUx
+IRMP_TARGETS = CUX
 
 ifeq ($(TARGET), CUX)
 ARCH      = XMEGA
@@ -111,6 +112,11 @@ OBJ = $(SRC:%.c=$(OBJDIR)/%.o)
 
 ifneq ($(findstring $(TARGET),$(MBUS_TARGETS)),)
 SRC += ../../clib/rf_mbus.c ../../clib/mbus/manchester.c ../../clib/mbus/3outof6.c ../../clib/mbus/mbus_packet.c ../../clib/mbus/crc.c
+endif
+
+ifneq ($(findstring $(TARGET),$(IRMP_TARGETS)),)
+SRC += ../../clib/ir.c  ../../clib/irmp.c
+#../../clib/irsnd.c
 endif
 
 ifneq ($(findstring $(TARGET),$(WIZNET_TARGETS)),)

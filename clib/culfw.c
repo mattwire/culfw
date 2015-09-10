@@ -1,7 +1,9 @@
 #include <avr/io.h>
 #include <avr/pgmspace.h>
+#include <stdio.h>
 
 #include "culfw.h"
+#include "board.h"
 
 #include "cc1100.h"
 #include "clock.h"
@@ -22,6 +24,9 @@
 #endif
 #ifdef HAS_USB
 #include "usb.h"
+#endif
+#ifdef HAS_UART
+#include "serial.h"
 #endif
 #ifdef HAS_ASKSIN
 #include "rf_asksin.h"
@@ -50,6 +55,27 @@
 #ifdef HAS_W5500
 #include "ethernet.h"
 #endif
+#ifdef HAS_ESP8266
+#include "esp8266.h"
+#endif
+#ifdef HAS_MQTT
+#include "mqtt.h"
+#endif
+#if defined (HAS_IRRX) || defined (HAS_IRTX)
+#include "ir.h"
+#endif
+#ifdef HAS_STACKING
+#include "stacking.h"
+#endif
+#ifdef HAS_SENSORS
+#include "sensors.h"
+#endif
+#ifdef HAS_BELFOX
+#include "belfox.h"
+#endif
+#ifdef HAS_RFNATIVE
+#include "rf_native.h"
+#endif
 
 const PROGMEM t_fntab fntab[] = {
 
@@ -68,11 +94,19 @@ const PROGMEM t_fntab fntab[] = {
 #ifdef HAS_ASKSIN
   { 'A', asksin_func },
 #endif
+
 #ifdef HAS_PIGATOR
   { 'p', pigator_func },
+#ifdef PIG_STACKED
+  { '*', pigator_stack_func },
 #endif
+#endif
+
 #ifdef HAS_MORITZ
   { 'Z', moritz_func },
+#endif
+#ifdef HAS_RFNATIVE
+  { 'N', native_func },
 #endif
 #ifdef HAS_RWE
   { 'E', rwe_func },
@@ -81,6 +115,9 @@ const PROGMEM t_fntab fntab[] = {
   { 'G', rawsend },
   { 'M', em_send },
   { 'K', ks_send },
+#endif
+#if defined (HAS_IRRX) || defined (HAS_IRTX)
+  { 'I', ir_func },
 #endif
 #ifdef HAS_UNIROLL
   { 'U', ur_send },
@@ -109,6 +146,19 @@ const PROGMEM t_fntab fntab[] = {
   { 'x', ccsetpa },
 #ifdef HAS_W5500
   { 'E', ethernet_func },
+#else
+#ifdef HAS_ESP8266
+  { 'E', esp8266_func },
+#endif  
+#endif
+#ifdef HAS_BELFOX
+  { 'L', send_belfox },
+#endif
+#ifdef HAS_SENSORS
+  { 'S', sensors_func },
+#endif
+#ifdef HAS_STACKING
+  { '*', stacking_func },
 #endif
 
   { 0, 0 },
@@ -116,6 +166,7 @@ const PROGMEM t_fntab fntab[] = {
 
 int display_putchar (char data, FILE * stream) {
   display_char( data );
+  return 0;
 }
 
 int main(void) {
@@ -132,8 +183,12 @@ int main(void) {
   led_init();
   spi_init();
   eeprom_init();
+  registry_init();
 #ifdef HAS_USB
   usb_init();
+#endif
+#ifdef HAS_UART
+  uart_init( UART_BAUD_RATE );
 #endif
 #ifdef HAS_W5500
   ethernet_init();
@@ -141,6 +196,21 @@ int main(void) {
 #ifdef HAS_PIGATOR
   pigator_init();
 #endif
+#ifdef HAS_ESP8266
+  esp8266_init();
+#endif
+#ifdef HAS_STACKING
+  stacking_initialize();
+#endif
+#if defined (HAS_IRRX) || defined (HAS_IRTX)
+  ir_init();
+#endif
+#ifdef HAS_SENSORS
+  sensors_init();
+#endif
+
+  sei();
+
   fht_init();
   tx_init();
 
@@ -155,6 +225,9 @@ int main(void) {
 #ifdef HAS_W5500
   display_channel |= DISPLAY_TCP;
 #endif
+#ifdef HAS_ESP8266
+  display_channel |= DISPLAY_TCP;
+#endif
   
   LED_OFF();
 
@@ -163,6 +236,9 @@ int main(void) {
   for(;;) {
 #ifdef HAS_USB
     usb_task();
+#endif
+#ifdef HAS_UART
+    uart_task();
 #endif
 #ifdef HAS_W5500
     ethernet_task();
@@ -174,6 +250,9 @@ int main(void) {
 #endif
 #ifdef HAS_RF_ROUTER
     rf_router_task();
+#endif
+#ifdef HAS_ESP8266
+    esp8266_task();
 #endif
 #ifdef HAS_ASKSIN
     rf_asksin_task();
@@ -189,6 +268,18 @@ int main(void) {
 #endif
 #ifdef HAS_PIGATOR
   pigator_task();
+#endif
+#if defined (HAS_IRRX) || defined (HAS_IRTX)
+    ir_task();
+#endif
+#ifdef HAS_STACKING
+  stacking_task();
+#endif
+#ifdef HAS_SENSORS
+  sensors_task();
+#endif
+#ifdef HAS_MQTT
+  mqtt_task();
 #endif
 
     loop();

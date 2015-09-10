@@ -28,18 +28,32 @@ void my_delay_ms( uint16_t d );
 
 #ifdef XMEGA
 
-#define BITCNT TCD0.CNT
-#define BITMAX TCD0.PER
-#define BITINT TCD0_OVF_vect
-#define BITINT_OFF TCD0.INTCTRLA = 0
-#define BITINT_ON  TCD0.INTCTRLA = 1
-#define BITINT_CLR TCD0.INTFLAGS |= 1
+#define BITTC TCD1
+#define BITINT TCD1_OVF_vect
+#define BITCNT BITTC.CNT
+#define BITMAX BITTC.PER
+#define BITINT_OFF BITTC.INTCTRLA = 0
+#define BITINT_ON  BITTC.INTCTRLA = 1
+#define BITINT_CLR BITTC.INTFLAGS |= 1
 
 #define CC1100_OUT_SET CC1100_OUT_PORT.OUTSET = CC1100_OUT_PIN
 #define CC1100_OUT_CLR CC1100_OUT_PORT.OUTCLR = CC1100_OUT_PIN
 #define PININT CC1100_IN_INT
 #define PININT_ON CC1100_IN_PORT.CC1100_IN_INTMASK = CC1100_IN_PIN
 #define PININT_OFF CC1100_IN_PORT.CC1100_IN_INTMASK = 0
+
+void mySerial_Init(USART_t* const USART, const uint32_t BaudRate);
+
+#define USART_Baudrate_Set(_usart, _bselValue, _bScaleFactor)                  \
+	(_usart)->BAUDCTRLA =(uint8_t)_bselValue;                              \
+	(_usart)->BAUDCTRLB =(_bScaleFactor << USART_BSCALE0_bp)|(_bselValue >> 8)
+
+#define USART_RxdInterruptLevel_Set(_usart, _rxdIntLevel)                      \
+	((_usart)->CTRLA = ((_usart)->CTRLA & ~USART_RXCINTLVL_gm) | _rxdIntLevel)
+
+#define USART_DreInterruptLevel_Set(_usart, _dreIntLevel)                      \
+	(_usart)->CTRLA = ((_usart)->CTRLA & ~USART_DREINTLVL_gm) | _dreIntLevel
+
 #else // XMEGA
 
 #define BITCNT TCNT1

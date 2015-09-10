@@ -46,8 +46,14 @@
 
 #if defined(CUX)
 #  define TTY_BUFSIZE          128
-#  define HAS_PIGATOR
-#  define HAS_W5500
+#  define _HAS_PIGATOR
+#  define _HAS_W5500
+
+#define HAS_IRRX
+#define F_INTERRUPTS            15625   // interrupts per second, min: 10000, max: 20000
+#define IRMP_PORT               PORTD
+#define IRMP_PIN                PIN5_bm
+
 #endif
 
 #if defined(CUL_V3) || defined(CUX)
@@ -213,11 +219,11 @@
 #  define CC1100_SPI_PORT       PORTC
 #  define CC1100_SPI		SPIC
 
-#  define LED_PORT              PORTE
-#  define LED_PIN               PIN2_bm
+#  define _LED_PORT              PORTE
+#  define _LED_PIN               PIN2_bm
 
-#  define _LED_PORT              PORTD
-#  define _LED_PIN               PIN5_bm
+#  define LED_PORT              PORTC
+#  define LED_PIN               PIN0_bm
 
 #  define CUL_HW_REVISION       "CUX_V1"
 #else

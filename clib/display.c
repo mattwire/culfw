@@ -20,6 +20,9 @@
 #ifdef HAS_W5500
 #include "ethernet.h"
 #endif
+#ifdef HAS_ESP8266
+#include "esp8266.h"
+#endif
 #ifdef HAS_DOGM
 #include "dogm16x.h"
 #endif
@@ -81,6 +84,11 @@ display_char(char data)
 #ifdef HAS_W5500
   if(display_channel & DISPLAY_TCP)
     rb_put(&NET_Tx_Buffer, data);
+#endif
+
+#ifdef HAS_ESP8266
+  if(display_channel & DISPLAY_TCP)
+    rb_put(&ESP_Tx_Buffer, data);
 #endif
 
 #ifdef HAS_PRIVATE_CHANNEL

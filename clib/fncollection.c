@@ -16,6 +16,8 @@
 #include "ethernet.h"
 #include <avr/wdt.h>
 
+#include "registry.h"
+
 uint8_t led_mode = 2;   // Start blinking
 
 #ifdef XLED
@@ -79,6 +81,17 @@ read_eeprom(char *in)
   uint8_t hb[2], d;
   uint16_t addr;
 
+  // read registry
+  if(in[1] == 'x' && in[2]) {
+    if (registry_get(in[2], &d) == REG_STATUS_OK) {
+      DH2(d);
+    } else {
+      DS_P( PSTR("na") );
+    }
+    DNL();
+    return;
+  }  
+
 #ifdef HAS_ETHERNET
   if(in[1] == 'i') {
            if(in[2] == 'm') { display_ee_mac(EE_MAC_ADDR);
@@ -118,7 +131,14 @@ void
 write_eeprom(char *in)
 {
   uint8_t hb[6], d = 0;
-
+  
+  // write registry
+  if(in[1] == 'x' && in[2] && in[3] && in[4]) {
+    fromhex(in+3,hb,1);
+    registry_set(in[2], hb, 1);
+    return;
+  }
+  
 #ifdef HAS_ETHERNET
   if(in[1] == 'i') {
     uint8_t *addr = 0;
@@ -235,33 +255,53 @@ eeprom_factory_reset(char *in)
 void
 ledfunc(char *in)
 {
-  fromhex(in+1, &led_mode, 1);
+  switch (in[1]) {
+#ifdef HAS_RGBLED
+  case 'c': // color
+    fromhex(in+2, &rgb_led[0], 1);
+    fromhex(in+4, &rgb_led[1], 1);
+    fromhex(in+6, &rgb_led[2], 1);
+    break;
+#endif
+  default:
+    
+    fromhex(in+1, &led_mode, 1);
 #ifdef XLED
-  switch (led_mode) {
+    switch (led_mode) {
     case 0:
-      xled_pattern = 0; 
+      xled_pattern = 0;
+      led_fade = 0;
       break;
     case 1:
       xled_pattern = 0xffff; 
+      led_fade = 0;
       break;
     case 2:
-      xled_pattern = 0xff00; 
+      xled_pattern = 0b1111111100000000;
+      led_fade = 0;
       break;
     case 3:
-      xled_pattern = 0xa000; 
+      xled_pattern = 0b1010000000000000;
+      led_fade = 0;
       break;
     case 4:
-      xled_pattern = 0xaa00; 
+      xled_pattern = 0b1010100100000000;
+      led_fade = 0;
       break;
-  }
+    case 5:
+      xled_pattern = 0b1000000000000000;
+      led_fade = 0;
+      break;
+    }
 #else
-  if(led_mode & 1)
-    LED_ON();
-  else
-    LED_OFF();
+    if(led_mode & 1)
+      LED_ON();
+    else
+      LED_OFF();
 #endif
-
-  ewb(EE_LED, led_mode);
+    
+    ewb(EE_LED, led_mode);
+  }
 }
 
 //////////////////////////////////////////////////
@@ -273,6 +313,9 @@ prepare_boot(char *in)
   if(in)
     fromhex(in+1, &bl, 1);
 
+  if(bl == 0xff)             // Allow testing
+    while(1);
+    
   if(bl)                     // Next reboot we'd like to jump to the bootloader.
     ewb( EE_REQBL, 1 );      // Simply jumping to the bootloader from here
                              // wont't work. Neither helps to shutdown USB
