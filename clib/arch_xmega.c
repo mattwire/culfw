@@ -87,7 +87,7 @@ void spi_init(void) {
   CC1100_CS_PORT.DIRSET = CC1100_CS_PIN; 
   CC1100_CS_PORT.OUTSET = CC1100_CS_PIN; 
 
-  CC1100_SPI_PORT.DIRSET = PIN5_bm | PIN7_bm;  // MOSI, SCK outputs
+  CC1100_SPI_PORT.DIRSET = PIN4_bm | PIN5_bm | PIN7_bm;  // SS, MOSI, SCK outputs
   CC1100_SPI_PORT.DIRCLR = PIN6_bm;  // MISO input
   CC1100_SPI.CTRL = (SPI_MODE_0_gc | SPI_PRESCALER_DIV16_gc | SPI_ENABLE_bm | SPI_MASTER_bm);
   //  CC1100_SPI.INTCTRL |= SPI_INTLVL_LO_gc;  //interrupts
@@ -180,14 +180,18 @@ void setup_timer(void) {
   // 125Hz system clock uses C0 timer
   TCC0.CNT   = 0;
   TCC0.CTRLA = TC_CLKSEL_EVCH0_gc; // 1us = 1MHz
-#if defined (HAS_IRX)  || defined (HAS_IRTX)
-  TCC0.CCA   = 50-1;   // 20000 Hz - to call irrx or irtx ISR
+#if defined (HAS_IRRX)  || defined (HAS_IRTX)
+  TCC0.PER   = 50-1;   // 20000 Hz - to call irrx or irtx ISR
 #else
-  TCC0.CCA   = 8000-1; // 125 Hz
+  TCC0.PER   = 8000-1; // 125 Hz
 #endif
-  
-  TCC0.CTRLB = 0x01;					        //set to FRQ
-  TCC0.INTCTRLB = 0x01;					        //enable INT
+
+#ifdef HAS_PWMLED  
+  TCC0.CTRLB    = (TC0_CCAEN_bm|TC0_CCBEN_bm|TC0_CCCEN_bm|TC_WGMODE_SS_gc);
+#else
+  TCC0.CTRLB    = 0;
+#endif
+  TCC0.INTCTRLA = 0x01;					        //enable INT
 
   // 1us clock uses C1 timer - and drives EVENT CH 0
   TCC1.CNT   = 0;

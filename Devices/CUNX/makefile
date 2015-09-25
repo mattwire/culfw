@@ -1,55 +1,37 @@
-
+ARCH   = XMEGA
+F_CPU  = 32000000
+MCU    = atxmega128a4u
 FORMAT = ihex
 OBJDIR = .
-
-MBUS_TARGETS = CUL_V3 CUX
-WIZNET_TARGETS = CUx
-IRMP_TARGETS = CUx
-
-ifeq ($(TARGET), CUX)
-ARCH      = XMEGA
-F_CPU     = 32000000
-MCU       = atxmega128a4u
-else
-ARCH      = AVR8
-F_CPU     = 8000000
-endif
-
-ifeq ($(ARCH), AVR8)
-  F_USB      = 8000000
-else ifeq ($(ARCH), XMEGA)
-  F_USB      = 48000000
-else ifeq ($(ARCH), UC3)
-  F_USB      = 48000000
-endif
+TARGET = CUNX
 
 LUFA_PATH = ../../LUFA/LUFA
 LUFA_OPTS = -DUSE_LUFA_CONFIG_HEADER -IConfig/
 
-WIZNET_PATH = ../../Wiznet_ioLibrary
-
 include $(LUFA_PATH)/Build/lufa_sources.mk
+
+WIZNET_PATH = ../../Wiznet_ioLibrary
 
 lcARCH = $(shell echo $(ARCH) | tr A-Z a-z)
 
 SRC =           ../../clib/arch_$(lcARCH).c			     \
 		../../clib/culfw.c                             	     \
-		../../clib/ethernet.c                          	     \
-		CUL.c                           	   	     \
+		$(TARGET).c                           	   	     \
 		../../clib/cc1100.c                                  \
 		../../clib/cc1101_pllcheck.c                         \
 		../../clib/clock.c                                   \
-		../../clib/usb.c                                     \
 		../../clib/display.c                                 \
 		../../clib/stringfunc.c                              \
 		../../clib/fncollection.c                            \
+		../../clib/usb.c              	 	             \
+		../../clib/Descriptors.c                             \
 		../../clib/ringbuffer.c                              \
 		../../clib/rf_send.c                                 \
 		../../clib/rf_receive.c                              \
 		../../clib/rf_router.c                               \
 		../../clib/rf_rwe.c                                  \
+		../../clib/rf_native.c                               \
 		../../clib/intertechno.c                             \
-		../../clib/registry.c                                \
 		../../clib/somfy_rts.c                               \
 		../../clib/kopp-fc.c                                 \
 		../../clib/fht.c                                     \
@@ -58,13 +40,21 @@ SRC =           ../../clib/arch_$(lcARCH).c			     \
 		../../clib/rf_moritz.c                               \
 		../../clib/ttydata.c                                 \
 		../../clib/memory.c                                  \
-		../../clib/Descriptors.c                             \
+		../../clib/belfox.c                                  \
 		../../clib/pigator.c                                 \
+		../../clib/ethernet.c                                \
+		../../clib/mqtt-msg.c                                \
+		../../clib/mqtt.c                                    \
+		../../clib/registry.c                                \
+                ../../clib/rf_mbus.c                                 \
+                ../../clib/mbus/manchester.c                         \
+                ../../clib/mbus/3outof6.c                            \
+                ../../clib/mbus/mbus_packet.c                        \
+                ../../clib/mbus/crc.c                                \
 		$(LUFA_SRC_USB) $(LUFA_SRC_USBCLASS) $(LUFA_SRC_TWI)
 
-
 CFLAGS  = -D$(TARGET)
-CFLAGS += -DF_CPU=$(F_CPU)UL -DF_USB=$(F_USB)UL -DF_CLOCK=$(F_CPU)UL
+CFLAGS += -DF_CPU=$(F_CPU)UL -DF_USB=48000000UL -DF_CLOCK=$(F_CPU)UL
 CFLAGS += -DARCH=ARCH_$(ARCH) -DLUFA $(LUFA_OPTS)
 CFLAGS += -Os
 CFLAGS += -funsigned-char       #   12 Byte (shorter code)
@@ -84,9 +74,13 @@ CFLAGS += -std=gnu99
 GENDEPFLAGS = -MMD -MP -MF .dep/$(@F).d
 ALL_CFLAGS = -mmcu=$(MCU) -I. $(CFLAGS) $(GENDEPFLAGS)
 
+SRC += $(shell find $(WIZNET_PATH)/Ethernet -name '*.c')
+SRC += $(WIZNET_PATH)/Internet/DHCP/dhcp.c 
+CFLAGS += $(shell find $(WIZNET_PATH) -maxdepth 1 -type d -not -wholename '*.git*' -printf "-I%p ")
+
 EXTMEMOPTS =
 LDFLAGS = -Wl,-Map=$(TARGET).map,--cref
-LDFLAGS += -Wl,--relax
+LDFLAGS += -Wl,--relax 
 LDFLAGS += -Wl,--gc-sections
 LDFLAGS += $(EXTMEMOPTS)
 
@@ -96,6 +90,7 @@ OBJDUMP = avr-objdump
 SIZE = avr-size
 AR = avr-ar rcs
 NM = avr-nm
+AVRDUDE = avrdude
 REMOVE = rm -f
 REMOVEDIR = rm -rf
 COPY = cp
@@ -111,27 +106,8 @@ MSG_CLEANING = Cleaning project:
 
 OBJ = $(SRC:%.c=$(OBJDIR)/%.o)
 
-ifneq ($(findstring $(TARGET),$(MBUS_TARGETS)),)
-SRC += ../../clib/rf_mbus.c ../../clib/mbus/manchester.c ../../clib/mbus/3outof6.c ../../clib/mbus/mbus_packet.c ../../clib/mbus/crc.c
-endif
 
-ifneq ($(findstring $(TARGET),$(IRMP_TARGETS)),)
-SRC += ../../clib/ir.c  ../../clib/irmp.c
-#../../clib/irsnd.c
-endif
-
-ifneq ($(findstring $(TARGET),$(WIZNET_TARGETS)),)
-SRC += $(shell find $(WIZNET_PATH) -name '*.c')
-CFLAGS += $(shell find $(WIZNET_PATH) -maxdepth 1 -type d -not -wholename '*.git*' -printf "-I%p ")
-endif
-
-all:
-	make TARGET=CUL_V2 MCU=at90usb162 mostly_clean build size
-	make TARGET=CUL_V2_HM MCU=at90usb162 mostly_clean build size
-	make TARGET=CUL_V2_MAX MCU=at90usb162 mostly_clean build size
-	make TARGET=CUL_V3 MCU=atmega32u4 mostly_clean build size
-	make TARGET=CUL_V4 MCU=atmega32u2 mostly_clean build size
-	make TARGET=CUX MCU=atxmega128a4u mostly_clean build size
+all: mostly_clean build size
 
 build: elf hex eep lss sym
 
@@ -149,34 +125,7 @@ size:
 	2>/dev/null; echo; fi
 
 
-usbprogram:
-	@echo 'specify one of: usbprogram_v2 usbprogram_v2_hm usbprogram_v3 usbprogram_v4 usbprogram_cux'
-
-usbprogram_cux: TARGET=CUX
-usbprogram_cux: MCU=atxmega128a4u
-usbprogram_cux: do_usbprogram
-
-usbprogram_v4: TARGET=CUL_V4
-usbprogram_v4: MCU=atmega32u2
-usbprogram_v4: do_usbprogram
-
-usbprogram_v3: TARGET=CUL_V3
-usbprogram_v3: MCU=atmega32u4
-usbprogram_v3: do_usbprogram
-
-usbprogram_v2: TARGET=CUL_V2
-usbprogram_v2: MCU=at90usb162
-usbprogram_v2: do_usbprogram
-
-usbprogram_v2_hm: TARGET=CUL_V2_HM
-usbprogram_v2_hm: MCU=at90usb162
-usbprogram_v2_hm: do_usbprogram
-
-usbprogram_v2_max: TARGET=CUL_V2_MAX
-usbprogram_v2_max: MCU=at90usb162
-usbprogram_v2_max: do_usbprogram
-
-do_usbprogram:
+dfu:
 	dfu-programmer $(MCU) erase || true
 	dfu-programmer $(MCU) flash $(TARGET).hex
 	dfu-programmer $(MCU) start
@@ -209,7 +158,7 @@ do_usbprogram:
 
 $(OBJDIR)/%.o : %.c
 	@echo $(MSG_COMPILING) $<
-	$(CC) -c $(ALL_CFLAGS) $< -o $@
+	$(CC) -c $(ALL_CFLAGS) $< -o $@ 
 
 mostly_clean:
 	@echo $(MSG_CLEANING)

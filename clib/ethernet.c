@@ -15,6 +15,20 @@
 #include "mqtt.h"
 #endif
 
+#ifdef HAS_PIGATOR
+#include "pigator.h"
+#include <LUFA/Drivers/Misc/RingBuffer.h>
+RingBuffer_t PIMtoNET_Buffer;
+uint8_t      PIMtoNET_Buffer_Data[USART_BUF_SIZE];
+
+void toNETBuffer(uint8_t in) {
+  if (RingBuffer_IsFull(&PIMtoNET_Buffer))
+    return;
+  
+  RingBuffer_Insert(&PIMtoNET_Buffer, in);
+}
+
+#endif
 
 //////////////////////////////////////////////////
 // Socket & Port number definition for Examples //
@@ -37,7 +51,7 @@ wiz_NetInfo gWIZNETINFO = {
   .sn = {255, 255, 255, 0},
   .gw = {10, 10, 11, 1},
   .dns = {0, 0, 0, 0},
-  //  .dhcp = NETINFO_DHCP
+  .dhcp = NETINFO_DHCP
 };
 
 rb_t NET_Tx_Buffer;
@@ -116,7 +130,11 @@ void ethernet_init(void) {
   } else {
     run_user_applications = 1; 
   }
-  
+
+#ifdef HAS_PIGATOR
+  RingBuffer_InitBuffer(&PIMtoNET_Buffer, PIMtoNET_Buffer_Data, USART_BUF_SIZE);
+#endif
+
 }
 
 void ethernet_func(char *in) {
@@ -213,6 +231,38 @@ int32_t rxtx_0() {
 
 int32_t rxtx_1() {
 #ifdef HAS_PIGATOR
+  int32_t ret;
+  uint16_t size = 0, sentsize=0;
+  
+  if((size = getSn_RX_RSR(1)) > 0) {
+
+    sentsize = USART_BUF_SIZE;
+    if(size > sentsize) size = sentsize;
+    ret = recv(1, gDATABUF, size);
+    if(ret <= 0) return ret;
+
+    sentsize = 0;
+    while(size != sentsize)
+      toPIMBuffer(gDATABUF[sentsize++]);
+    
+  }
+
+  sentsize = RingBuffer_GetCount(&PIMtoNET_Buffer);
+  size = 0;
+  while (sentsize--)
+      gDATABUF[size++] = RingBuffer_Remove(&PIMtoNET_Buffer);
+  
+  sentsize = 0;
+  while(size != sentsize) {
+    ret = send(1, gDATABUF+sentsize,size-sentsize);
+    if(ret < 0) {
+      close(1);
+      return ret;
+    }
+    sentsize += ret; // Don't care SOCKERR_BUSY, because it is zero.
+  }
+
+  return 1;
 #else 
   return 1;
 #endif
@@ -332,7 +382,7 @@ void ethernet_task(void) {
 
   tcp_server( 0, 2323 );
 #ifdef HAS_PIGATOR
-  tcp_server( 0, 2324 );
+  tcp_server( 1, 2324 );
 #endif
 }
 	

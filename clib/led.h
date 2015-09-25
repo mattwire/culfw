@@ -20,7 +20,7 @@ uint8_t led_fade;
 #define led_init()  xled_pos=0; xled_pattern=0x8000; led_fade = 0;
 #define LED_TOGGLE() led_on ^= 0xff
 #define LED_OFF()  led_on = 0
-#define LED_ON()   led_on = 1
+#define LED_ON()   led_on = 1; led_fade = 0
 #else
 #define led_init() LED_PORT.DIRSET = LED_PIN
 #define LED_TOGGLE() LED_PORT.OUTTGL = LED_PIN

@@ -108,9 +108,6 @@ const PROGMEM t_fntab fntab[] = {
 #ifdef HAS_RFNATIVE
   { 'N', native_func },
 #endif
-#ifdef HAS_RWE
-  { 'E', rwe_func },
-#endif
 #ifdef HAS_RAWSEND
   { 'G', rawsend },
   { 'M', em_send },

@@ -1,6 +1,8 @@
 #ifndef _PIGATOR_H
 #define _PIGATOR_H
 
+#define USART_BUF_SIZE 256
+
 void pigator_init(void);
 void pigator_task(void);
 void pigator_func(char *in);

@@ -49,7 +49,7 @@ volatile uint8_t  clock_hsec;
 // count & compute in the interrupt, else long runnning tasks would block
 // a "minute" task too long
 #ifdef XMEGA
-SIGNAL(TCC0_CCA_vect) {
+SIGNAL(TCC0_OVF_vect) {
 #else
 ISR(TIMER0_COMPA_vect, ISR_BLOCK) {
 #endif
@@ -171,6 +171,18 @@ Minute_Task(void)
     }
   }
   xled_pos &= 15;
+#ifdef _OFF_
+  if (led_on) {
+    uint16_t zz = 1;
+    TCC0.CCA = (rgb_led[0]-led_fade) * zz;
+    TCC0.CCB = (rgb_led[1]-led_fade) * zz;
+    TCC0.CCC = (rgb_led[2]-led_fade) * zz;
+  } else {
+    TCC0.CCA = TCC0.PER + 1;
+    TCC0.CCB = TCC0.PER + 1;
+    TCC0.CCC = TCC0.PER + 1;
+  }
+#endif
 #endif
 #ifdef HAS_FHT_TF
   // iterate over all TFs

@@ -9,4 +9,6 @@ void ethernet_task(void);
 
 extern rb_t NET_Tx_Buffer;
 
+void toNETBuffer(uint8_t in);
+
 #endif

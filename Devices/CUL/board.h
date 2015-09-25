@@ -49,7 +49,7 @@
 #  define _HAS_PIGATOR
 #  define _HAS_W5500
 
-#define HAS_IRRX
+#define _HAS_IRRX
 #define F_INTERRUPTS            15625   // interrupts per second, min: 10000, max: 20000
 #define IRMP_PORT               PORTD
 #define IRMP_PIN                PIN5_bm
@@ -198,32 +198,41 @@
 #if defined(CUX)
 #  define XMEGA
 
-#  define CC1100_CS_PORT        PORTC
-#  define CC1100_CS_PIN		PIN4_bm
+#ifdef SS1
+
+#  define CC1100_CS_PORT        PORTB
+#  define CC1100_CS_PIN		PIN1_bm
+
+#  define CC1100_OUT_PORT       PORTD
+#  define CC1100_OUT_PIN        PIN3_bm
+
+#  define CC1100_IN_PORT        PORTD
+#  define CC1100_IN_PIN         PIN2_bm
+#  define CC1100_IN_PINCTRL     PIN2CTRL
+#  define CC1100_IN_INTMASK     INT1MASK
+#  define CC1100_IN_INT         PORTD_INT1_vect
+
+#else
+
+#  define CC1100_CS_PORT        PORTB
+#  define CC1100_CS_PIN		PIN0_bm
 
 #  define CC1100_OUT_PORT       PORTA
-#  define CC1100_OUT_PIN        PIN4_bm
-
-#  define _CC1100_OUT_PORT       PORTA
-#  define _CC1100_OUT_PIN        PIN7_bm
+#  define CC1100_OUT_PIN        PIN3_bm
 
 #  define CC1100_IN_PORT        PORTA
-#  define CC1100_IN_PIN         PIN5_bm
-#  define CC1100_IN_PINCTRL     PIN5CTRL
+#  define CC1100_IN_PIN         PIN2_bm
+#  define CC1100_IN_PINCTRL     PIN2CTRL
 #  define CC1100_IN_INTMASK     INT1MASK
 #  define CC1100_IN_INT         PORTA_INT1_vect
 
-#  define _CC1100_IN_PORT        PORTB
-#  define _CC1100_IN_PIN         PIN0_bm
+#endif
 
 #  define CC1100_SPI_PORT       PORTC
 #  define CC1100_SPI		SPIC
 
-#  define _LED_PORT              PORTE
-#  define _LED_PIN               PIN2_bm
-
 #  define LED_PORT              PORTC
-#  define LED_PIN               PIN0_bm
+#  define LED_PIN               PIN1_bm
 
 #  define CUL_HW_REVISION       "CUX_V1"
 #else

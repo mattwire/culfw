@@ -21,8 +21,11 @@
 #include "esp8266.h"
 #endif
 
+#ifdef HAS_W5500
+#include "ethernet.h"
+#endif
+
 #define USART PIG_UART
-#define USART_BUF_SIZE 256
 #define TWI   PIG_TWI
 
 RingBuffer_t toPIM_Buffer;
@@ -387,6 +390,10 @@ ISR(PIG_RXC_vect) {
 
 #ifdef HAS_ESP8266
   rb_put(&ESP_Rx_Buffer, data);
+#endif
+
+#ifdef HAS_W5500
+  toNETBuffer(data);
 #endif
   
 }
