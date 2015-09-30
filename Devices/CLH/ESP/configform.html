@@ -1,0 +1,22 @@
+<html><head><style>
+body {
+font: 12px/20px 'Lucida Grande', Verdana, sans-serif;
+color: #404040;
+background: #E5FFCC;
+}
+input, textarea, select, label {
+font-family: inherit;
+font-size: 12px;
+}
+</style></head><body><center><h1>Lighthouse WiFi Setup</h1>
+<form method='get' action='/' class="login">
+<table border='0'>
+<tr><td>Select access point: </td><td><select name='ssid'>${available_aps}</select></td></tr>
+<tr><td>or SSID <small>(if above is hidden):</small></td><td><input name='hiddenssid' value='${ssid}'/></td></tr>
+<tr><td colspan=2>&nbsp;</td></tr>
+<tr><td>Enter password: </td><td><input type='password' name='password'></input></td></tr>
+<tr><td colspan=2>&nbsp;</td></tr>
+<tr><td colspan=2 align=center><button type='submit'>Save</button></td></tr>
+</table><br>
+<a href="http://busware.de">busware.de - 2015</a>
+</form></body></html>
