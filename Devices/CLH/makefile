@@ -1,0 +1,183 @@
+ARCH   = XMEGA
+F_CPU  = 32000000
+MCU    = atxmega128a4u
+FORMAT = ihex
+OBJDIR = .
+TARGET = CLH
+
+LUFA_PATH = ../../LUFA/LUFA
+LUFA_OPTS = -DUSE_LUFA_CONFIG_HEADER -IConfig/
+
+include $(LUFA_PATH)/Build/lufa_sources.mk
+
+lcARCH = $(shell echo $(ARCH) | tr A-Z a-z)
+
+SRC =           ../../clib/arch_$(lcARCH).c			     \
+		../../clib/culfw.c                             	     \
+		$(TARGET).c                           	   	     \
+		../../clib/cc1100.c                                  \
+		../../clib/cc1101_pllcheck.c                         \
+		../../clib/clock.c                                   \
+		../../clib/display.c                                 \
+		../../clib/stringfunc.c                              \
+		../../clib/fncollection.c                            \
+		../../clib/usb.c              	 	             \
+		../../clib/Descriptors.c                             \
+		../../clib/ringbuffer.c                              \
+		../../clib/rf_send.c                                 \
+		../../clib/rf_receive.c                              \
+		../../clib/rf_router.c                               \
+		../../clib/rf_rwe.c                                  \
+		../../clib/intertechno.c                             \
+		../../clib/somfy_rts.c                               \
+		../../clib/kopp-fc.c                                 \
+		../../clib/fht.c                                     \
+		../../clib/fastrf.c                                  \
+		../../clib/rf_asksin.c                               \
+		../../clib/rf_moritz.c                               \
+		../../clib/ttydata.c                                 \
+		../../clib/memory.c                                  \
+		../../clib/pigator.c                                 \
+		../../clib/esp8266.c                                 \
+                ../../clib/rf_mbus.c                                 \
+                ../../clib/registry.c                                \
+                ../../clib/sensors.c                                 \
+		../../clib/ir.c ../../clib/ir1.c ../../clib/ir2.c    \
+		../../clib/irsnd.c ../../clib/irmp.c  		     \
+                ../../clib/mbus/manchester.c                         \
+                ../../clib/mbus/3outof6.c                            \
+                ../../clib/mbus/mbus_packet.c                        \
+                ../../clib/mbus/crc.c                                \
+		$(LUFA_SRC_USB) $(LUFA_SRC_USBCLASS) $(LUFA_SRC_TWI)
+
+CFLAGS  = -D$(TARGET)
+CFLAGS += -DF_CPU=$(F_CPU)UL -DF_USB=48000000UL -DF_CLOCK=$(F_CPU)UL
+CFLAGS += -DARCH=ARCH_$(ARCH) -DLUFA $(LUFA_OPTS)
+CFLAGS += -Os
+CFLAGS += -funsigned-char       #   12 Byte (shorter code)
+CFLAGS += -funsigned-bitfields  #    0
+CFLAGS += -ffunction-sections   # 2600
+CFLAGS += -fpack-struct         #    0
+CFLAGS += -fshort-enums         #    0
+CFLAGS += -mcall-prologues      #  130
+CFLAGS += -finline-limit=20     # 0=>150 10=>12 20=>0 (0: RFR won't work!)
+CFLAGS += -Wall
+CFLAGS += -Wstrict-prototypes
+CFLAGS += -Wundef
+CFLAGS += -Wa,-adhlns=$(<:%.c=$(OBJDIR)/%.lst)
+CFLAGS += -I../../clib -I$(patsubst %/,%,$(LUFA_PATH))/..
+CFLAGS += -std=gnu99
+#CFLAGS += -Wunreachable-code
+GENDEPFLAGS = -MMD -MP -MF .dep/$(@F).d
+ALL_CFLAGS = -mmcu=$(MCU) -I. $(CFLAGS) $(GENDEPFLAGS)
+
+EXTMEMOPTS =
+LDFLAGS = -Wl,-Map=$(TARGET).map,--cref
+LDFLAGS += -Wl,--relax 
+LDFLAGS += -Wl,--gc-sections
+LDFLAGS += $(EXTMEMOPTS)
+
+CC = avr-gcc
+OBJCOPY = avr-objcopy
+OBJDUMP = avr-objdump
+SIZE = avr-size
+AR = avr-ar rcs
+NM = avr-nm
+AVRDUDE = avrdude
+REMOVE = rm -f
+REMOVEDIR = rm -rf
+COPY = cp
+
+MSG_SIZE = Size:
+MSG_FLASH = Creating load file for Flash:
+MSG_EEPROM = Creating load file for EEPROM:
+MSG_EXTENDED_LISTING = Creating Extended Listing:
+MSG_SYMBOL_TABLE = Creating Symbol Table:
+MSG_LINKING = Linking:
+MSG_COMPILING = Compiling C:
+MSG_CLEANING = Cleaning project:
+
+OBJ = $(SRC:%.c=$(OBJDIR)/%.o)
+
+
+all: mostly_clean build size
+
+build: elf hex eep lss sym
+
+elf: $(TARGET).elf
+hex: $(TARGET).hex
+eep: $(TARGET).eep
+lss: $(TARGET).lss
+sym: $(TARGET).sym
+
+
+ELFSIZE = $(SIZE) $(TARGET).elf
+
+size:
+	@if test -f $(TARGET).elf; then echo $(MSG_SIZE); $(ELFSIZE); \
+	2>/dev/null; echo; fi
+
+
+dfu:
+	dfu-programmer $(MCU) erase || true
+	dfu-programmer $(MCU) flash $(TARGET).hex
+	dfu-programmer $(MCU) start
+
+%.hex: %.elf
+	@echo $(MSG_FLASH) $@
+	@$(OBJCOPY) -O $(FORMAT) -R .eeprom $< $@
+
+%.eep: %.elf
+	@echo $(MSG_EEPROM) $@
+	@-$(OBJCOPY) -j .eeprom --set-section-flags=.eeprom="alloc,load" \
+	--change-section-lma .eeprom=0 --no-change-warnings -O $(FORMAT) $< $@ || exit 0
+
+%.lss: %.elf
+	@echo $(MSG_EXTENDED_LISTING) $@
+	@$(OBJDUMP) -h -z -S $< > $@
+
+%.sym: %.elf
+	@echo $(MSG_SYMBOL_TABLE) $@
+	@$(NM) -n $< > $@
+
+
+
+.SECONDARY : $(TARGET).elf
+.PRECIOUS : $(OBJ)
+%.elf: $(OBJ)
+	@echo $(MSG_LINKING) $@
+	@$(CC) $(ALL_CFLAGS) $^ --output $@ $(LDFLAGS)
+
+
+$(OBJDIR)/%.o : %.c
+	@echo $(MSG_COMPILING) $<
+	$(CC) -c $(ALL_CFLAGS) $< -o $@ 
+
+mostly_clean:
+	@echo $(MSG_CLEANING)
+	@$(REMOVE) $(TARGET).hex
+	@$(REMOVE) $(TARGET).eep
+	@$(REMOVE) $(TARGET).cof
+	@$(REMOVE) $(TARGET).elf
+	@$(REMOVE) $(TARGET).map
+	@$(REMOVE) $(TARGET).sym
+	@$(REMOVE) $(TARGET).lss
+	@$(REMOVE) $(SRC:%.c=$(OBJDIR)/%.o)
+	@$(REMOVE) $(SRC:%.c=$(OBJDIR)/%.lst)
+	@$(REMOVE) $(SRC:.c=.s)
+	@$(REMOVE) $(SRC:.c=.d)
+	@$(REMOVE) $(SRC:.c=.i)
+
+clean: mostly_clean
+	@$(REMOVE) *.hex
+	@$(REMOVE) *.eep
+	@$(REMOVE) *.cof
+	@$(REMOVE) *.elf
+	@$(REMOVE) *.map
+	@$(REMOVE) *.sym
+	@$(REMOVE) *.lss
+	@$(REMOVEDIR) .dep
+
+$(shell mkdir $(OBJDIR) 2>/dev/null)
+
+-include $(shell mkdir .dep 2>/dev/null) $(wildcard .dep/*)
