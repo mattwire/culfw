@@ -21,6 +21,8 @@ oder
 Zudem kann man über CUNX (ttyACM0) das Modul steuern, flashen etc:
 
 *pi* - Pigator Info
+
 *pr* - Pigator Reset
+
 *pb* - Pigator Bootload (so unterstützt)
 
