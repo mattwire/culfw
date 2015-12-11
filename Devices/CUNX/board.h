@@ -32,6 +32,7 @@
 #define HAS_KOPP_FC
 #define HAS_NATIVE
 #define HAS_MBUS
+#define HAS_ZWAVE
 #define LACROSSE_HMS_EMU
 
 #define TTY_BUFSIZE          128

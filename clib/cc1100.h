@@ -178,6 +178,7 @@ extern uint8_t cc_on;
 
 #include "board.h"
 
+
 #ifndef XMEGA
 #define CC1100_DEASSERT  SET_BIT( CC1100_CS_PORT, CC1100_CS_PIN )
 #define CC1100_ASSERT    CLEAR_BIT( CC1100_CS_PORT, CC1100_CS_PIN )

@@ -76,6 +76,9 @@
 #ifdef HAS_RFNATIVE
 #include "rf_native.h"
 #endif
+#ifdef HAS_ZWAVE
+#include "rf_zwave.h"
+#endif
 
 const PROGMEM t_fntab fntab[] = {
 
@@ -156,6 +159,9 @@ const PROGMEM t_fntab fntab[] = {
 #endif
 #ifdef HAS_STACKING
   { '*', stacking_func },
+#endif
+#ifdef HAS_ZWAVE
+  { 'z', zwave_func },
 #endif
 
   { 0, 0 },
@@ -277,6 +283,9 @@ int main(void) {
 #endif
 #ifdef HAS_MQTT
   mqtt_task();
+#endif
+#ifdef HAS_ZWAVE
+    rf_zwave_task();
 #endif
 
     loop();

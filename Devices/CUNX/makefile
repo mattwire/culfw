@@ -30,6 +30,7 @@ SRC =           ../../clib/arch_$(lcARCH).c			     \
 		../../clib/rf_receive.c                              \
 		../../clib/rf_router.c                               \
 		../../clib/rf_rwe.c                                  \
+		../../clib/rf_zwave.c                                \
 		../../clib/rf_native.c                               \
 		../../clib/intertechno.c                             \
 		../../clib/somfy_rts.c                               \
