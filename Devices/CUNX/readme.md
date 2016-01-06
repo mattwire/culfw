@@ -34,3 +34,16 @@ Zudem kann man über CUNX (ttyACM0) das Modul steuern, flashen etc:
 
 *pb* - Pigator Bootload (so unterstützt)
 
+- Firmware update
+
+--Bootloader
+Knopf neben USB-Buchse beim Anstecken gedrückt halten - oder - Kommando "B01" eingeben.
+
+--Flashen
+Mit der Version 0.7.0 des dfu-programmers:
+
+```
+dfu-programmer atxmega128a4u erase || true
+dfu-programmer atxmega128a4u flash CUNX.hex
+dfu-programmer atxmega128a4u start
+```
