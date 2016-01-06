@@ -293,9 +293,15 @@ ccRX(void)
 void
 ccreg(char *in)
 {
-  uint8_t hb, out;
+  uint8_t hb, out, addr;
 
-  if(fromhex(in+1, &hb, 1)) {
+  if(in[1] == 'w' && fromhex(in+2, &addr, 1) && fromhex(in+4, &hb, 1)) {
+    cc1100_writeReg(addr, hb);
+    ccStrobe( CC1100_SCAL );
+    ccRX();
+    DH2(addr); DH2(hb); DNL();
+
+  } else if(fromhex(in+1, &hb, 1)) {
 
     if(hb == 0x99) {
       for(uint8_t i = 0; i < 0x30; i++) {
