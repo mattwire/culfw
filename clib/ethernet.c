@@ -7,9 +7,12 @@
 #include "socket.h"
 #include "arch.h"
 #include "display.h"
+#include "registry.h"
 #include "ttydata.h"
 #include <avr/pgmspace.h>
 #include <stdio.h>
+
+#include <LUFA/Drivers/USB/USB.h>
 
 #ifdef HAS_MQTT
 #include "mqtt.h"
@@ -47,9 +50,9 @@ uint8_t gDATABUF[DATA_BUF_SIZE];
 ///////////////////////////
 wiz_NetInfo gWIZNETINFO = {
   .mac = {0xa4, 0x50, 0x55, 0xbb, 0xcd, 0x1f},
-  .ip = {10, 10, 11, 101},
+  .ip = {192, 168, 2, 168},
   .sn = {255, 255, 255, 0},
-  .gw = {10, 10, 11, 1},
+  .gw = {192, 168, 2, 1},
   .dns = {0, 0, 0, 0},
   .dhcp = NETINFO_DHCP
 };
@@ -116,6 +119,50 @@ void ethernet_init(void) {
     DS_P(PSTR("WIZCHIP Initialized success."));
   }
   DNL();
+
+  // prepare gWIZNETINFO from registry
+
+  if (registry_get(REG_ETHERNET_MAC, &gWIZNETINFO.mac) != REG_STATUS_OK) {
+
+    // read XMEGA serial and construct MAC address - if not stored in Registry already ...
+    uint_reg_t CurrentGlobalInt = GetGlobalInterruptMask();
+    GlobalInterruptDisable();
+    
+    uint8_t SigReadAddress = INTERNAL_SERIAL_START_ADDRESS;
+    uint32_t SerialByte = 0;
+
+    for (uint8_t SerialCharNum = 0; SerialCharNum < (INTERNAL_SERIAL_LENGTH_BITS / 8); SerialCharNum++)  {
+      
+      NVM.CMD     = NVM_CMD_READ_CALIB_ROW_gc;
+      SerialByte += pgm_read_byte(SigReadAddress++);
+      NVM.CMD     = 0;
+      
+    }
+    
+    SetGlobalInterruptMask(CurrentGlobalInt);
+
+    // fixed to busware
+    gWIZNETINFO.mac[0] = 0xa4;
+    gWIZNETINFO.mac[1] = 0x50;
+    gWIZNETINFO.mac[2] = 0x55;
+
+    // variable
+    gWIZNETINFO.mac[3] = (SerialByte>>16) & 0xff;
+    gWIZNETINFO.mac[4] = (SerialByte>>8) & 0xff;
+    gWIZNETINFO.mac[5] = SerialByte & 0xff;
+
+    // store
+    registry_set(REG_ETHERNET_MAC, &gWIZNETINFO.mac, 6);
+  }
+  
+  registry_get(REG_ETHERNET_DHCP, &gWIZNETINFO.dhcp);
+
+  if(gWIZNETINFO.dhcp != NETINFO_DHCP) {
+    registry_get(REG_ETHERNET_IP4_ADDR, &gWIZNETINFO.ip);
+    registry_get(REG_ETHERNET_IP4_GATEWAY, &gWIZNETINFO.gw);
+    registry_get(REG_ETHERNET_IP4_NETMASK, &gWIZNETINFO.sn);
+    registry_get(REG_ETHERNET_IP4_DNS, &gWIZNETINFO.dns);
+  }
 
   // fix NetInfo and set
   ctlnetwork(CN_SET_NETINFO, (void*) &gWIZNETINFO);

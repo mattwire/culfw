@@ -139,24 +139,23 @@ write_eeprom(char *in)
     return;
   }
   
-#ifdef HAS_ETHERNET
+#ifdef HAS_W5500
   if(in[1] == 'i') {
-    uint8_t *addr = 0;
-           if(in[2] == 'm') { d=6; fromhex(in+3,hb,6); addr=EE_MAC_ADDR;
-    } else if(in[2] == 'd') { d=1; fromdec(in+3,hb);   addr=EE_USE_DHCP;
-    } else if(in[2] == 'a') { d=4; fromip (in+3,hb,4); addr=EE_IP4_ADDR;
-    } else if(in[2] == 'n') { d=4; fromip (in+3,hb,4); addr=EE_IP4_NETMASK;
-    } else if(in[2] == 'g') { d=4; fromip (in+3,hb,4); addr=EE_IP4_GATEWAY;
+    uint8_t addr = 0;
+           if(in[2] == 'm') { d=6; fromhex(in+3,hb,6); addr=REG_ETHERNET_MAC;
+    } else if(in[2] == 'd') { d=1; fromdec(in+3,hb);   addr=REG_ETHERNET_DHCP;
+    } else if(in[2] == 'a') { d=4; fromip (in+3,hb,4); addr=REG_ETHERNET_IP4_ADDR;
+    } else if(in[2] == 'n') { d=4; fromip (in+3,hb,4); addr=REG_ETHERNET_IP4_NETMASK;
+    } else if(in[2] == 'g') { d=4; fromip (in+3,hb,4); addr=REG_ETHERNET_IP4_GATEWAY;
+	     /*
     } else if(in[2] == 'p') { d=2; fromdec(in+3,hb);   addr=EE_IP4_TCPLINK_PORT;
     } else if(in[2] == 'N') { d=4; fromip (in+3,hb,4); addr=EE_IP4_NTPSERVER;
     } else if(in[2] == 'o') { d=1; fromhex(in+3,hb,1); addr=EE_IP4_NTPOFFSET;
-#ifdef HAS_NTP
-      extern int8_t ntp_gmtoff;
-      ntp_gmtoff = hb[0];
-#endif
+	     */
     }
-    for(uint8_t i = 0; i < d; i++)
-      ewb(addr++, hb[i]);
+	   
+    if (addr)
+      registry_set(addr, hb, d);
 
   } else 
 #endif
