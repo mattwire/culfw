@@ -6,9 +6,13 @@ Ein CUNX spricht man sinnvollerweise am Anfang per USB durch /dev/ttyACM0 an.
 
 ##Netzwerk
 
-Derzeit ist nur DHCP möglich. Statische IP wird noch nicht unterstützt.
+*En* - Auslesen der IP Konfiguration
 
-*En* - Auslesen der IP Adresse
+*Wim* - Setzten der MAC Adresse (wird automatisch gesetzt oder: Wima45055112233)
+*Wid* - DHCP enabled flag (Wid01 - DHCP an // Wid00 DHCP aus)
+*Wia* - Setzten der IPV4 Adresse (Wia192.168.2.168)
+*Wig* - Setzten des IPV4 Gateways (Wig192.168.2.1)
+*Win* - Setzten der IPV4 Netzmaske (Win255.255.255.0)
 
 ##Zugriff auf optionales Pigator modul:
 
