@@ -69,6 +69,7 @@
 #define PIG_UART_PORT         PORTD
 #define PIG_DRE_vect          USARTD0_DRE_vect
 #define PIG_RXC_vect          USARTD0_RXC_vect
+#define PIG_TXC_vect          USARTD0_TXC_vect
 #define PIG_TWI               TWIE
 #define PIG_I2C_PULL          PORTE
 #define PIG_SPI               CC1100_SPI
@@ -78,6 +79,8 @@
 #define PIG_RESET_PIN         PIN0_bm
 #define PIG_BSEL_PORT         PORTA
 #define PIG_BSEL_PIN          PIN3_bm
+#define PIG_RTS_PORT          PORTD
+#define PIG_RTS_PIN           PIN5_bm
 
 #define HAS_W5500
 #define W5500_RESET_PORT      PORTD

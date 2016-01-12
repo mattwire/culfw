@@ -78,13 +78,17 @@ display_ee_ip4(uint8_t *a)
 void
 read_eeprom(char *in)
 {
-  uint8_t hb[2], d;
-  uint16_t addr;
+  uint8_t hb[10], d;
+  uint8_t addr;
 
   // read registry
-  if(in[1] == 'x' && in[2]) {
-    if (registry_get(in[2], &d) == REG_STATUS_OK) {
-      DH2(d);
+  if(in[1] == 'x' && in[2] && in[3]) {
+    fromhex(in+2,&addr,1);
+    DH2(addr); DS_P(PSTR(" = "));
+    if (registry_get(addr, hb) == REG_STATUS_OK) {
+      for (addr=0;addr<sizeof(hb);addr++) {
+	DH2(hb[addr]); DC(' ');
+      }
     } else {
       DS_P( PSTR("na") );
     }

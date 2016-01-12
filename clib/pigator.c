@@ -2,6 +2,7 @@
 #ifdef HAS_PIGATOR
 
 #include "pigator.h"
+#include "registry.h"
 #include "LUFA/Drivers/Peripheral/TWI.h"
 #include <LUFA/Drivers/Peripheral/Serial.h>
 #include <LUFA/Drivers/Misc/RingBuffer.h>
@@ -273,7 +274,28 @@ Pigator_Module_t modules[] = {
     .cb_mod_reset    = pig_reset_high,
     .cb_mod_bootload = NULL,
   },
-  
+
+  {
+    .Magic           = "RS485",
+    .Baud            = 9600,
+    .hasRTS          = 1,
+    .flexBaud        = 1,
+    .cb_mod_init     = pig_serialfwd_init,
+    .cb_mod_task     = pig_serialfwd_task,
+    .cb_mod_reset    = NULL,
+    .cb_mod_bootload = NULL,
+  },
+
+  {
+    .Magic           = "SERIAL",
+    .Baud            = 9600,
+    .flexBaud        = 1,
+    .cb_mod_init     = pig_serialfwd_init,
+    .cb_mod_task     = pig_serialfwd_task,
+    .cb_mod_reset    = NULL,
+    .cb_mod_bootload = NULL,
+  },
+
 #endif
   
   { .Magic        = "\x00" } // EOL
@@ -332,6 +354,18 @@ void pigator_init(void) {
   if (!Pigator_Module)
     return;
 
+#ifdef PIG_RTS_PORT
+  if (Pigator_Module->hasRTS) {
+    PIG_RTS_PORT.DIRSET = PIG_RTS_PIN;
+    PIG_RTS_PORT.OUTCLR = PIG_RTS_PIN;
+  };
+#endif
+  
+  // if baudrate may be flexable - read last given value from registry
+  if (Pigator_Module->flexBaud) {
+    registry_get( REG_PIM_BAUD, &(Pigator_Module->Baud));
+  } 
+
   pig_mod_init     = Pigator_Module->cb_mod_init;
   pig_mod_task     = Pigator_Module->cb_mod_task;
   pig_mod_reset    = Pigator_Module->cb_mod_reset;
@@ -352,6 +386,10 @@ void pigator_func(char *in) {
     DS_P(PSTR("1:"));
     if (Pigator_Module) {
       DS( Pigator_Module->Magic );
+      if (Pigator_Module->flexBaud) {
+	DS_P(PSTR(" @ "));
+	DU(Pigator_Module->Baud,0);
+      }
     } else {
       DS( (char *)EEP_MAGIC );
       DS_P(PSTR(" ?"));
@@ -359,6 +397,10 @@ void pigator_func(char *in) {
     DNL();
   } else if (in[1] == 'r') {  // reset module
     reset_module();
+  } else if (in[1] == 's') {  // store baudrate
+    if (Pigator_Module && Pigator_Module->Baud)
+      registry_set( REG_PIM_BAUD, &(Pigator_Module->Baud), 4);
+      registry_set( REG_PIM_FORMAT, &(USART.CTRLC), 1);
   } else if (in[1] == 'b') {  // call modules bootloader
     if (pig_mod_bootload)
       pig_mod_bootload();
@@ -405,8 +447,41 @@ ISR(PIG_DRE_vect) {
   
   if ((RingBuffer_IsEmpty(&toPIM_Buffer))) {
     USART_DreInterruptLevel_Set(&USART, USART_DREINTLVL_OFF_gc);
-  } else
-    USART.DATA = RingBuffer_Remove(&toPIM_Buffer);
+    
+    if (Pigator_Module && Pigator_Module->hasRTS)
+      USART_TxdInterruptLevel_Set(&USART, USART_TXCINTLVL_LO_gc);
+    
+  } else {
+    
+    if (Pigator_Module && Pigator_Module->hasRTS)
+      PIG_RTS_PORT.OUTSET = PIG_RTS_PIN;
+    
+    Serial_SendByte(&USART, RingBuffer_Remove(&toPIM_Buffer));
+    
+  }
+}
+
+ISR(PIG_TXC_vect) {
+  USART_TxdInterruptLevel_Set(&USART, USART_TXCINTLVL_OFF_gc);
+  if ((Pigator_Module && Pigator_Module->hasRTS) && RingBuffer_IsEmpty(&toPIM_Buffer))
+    PIG_RTS_PORT.OUTCLR = PIG_RTS_PIN;
+}
+
+void PIM_setBaud(uint32_t baud) {
+  if (baud && Pigator_Module && Pigator_Module->flexBaud) {
+
+    if (baud != Pigator_Module->Baud) {
+      Pigator_Module->Baud = baud;
+
+      //      DS_P(PSTR("Setting PIM to ")); DU(baud,0); DS_P(PSTR(" baud\n\r"));
+      //      registry_set( REG_PIM_BAUD, &baud, 4);
+      
+      if (pig_mod_init)
+	pig_mod_init();
+      
+    }
+    
+  }
 }
 
 #endif

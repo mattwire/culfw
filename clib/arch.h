@@ -54,6 +54,9 @@ void mySerial_Init(USART_t* const USART, const uint32_t BaudRate);
 #define USART_DreInterruptLevel_Set(_usart, _dreIntLevel)                      \
 	(_usart)->CTRLA = ((_usart)->CTRLA & ~USART_DREINTLVL_gm) | _dreIntLevel
 
+#define USART_TxdInterruptLevel_Set(_usart, _txdIntLevel)		\
+  ((_usart)->CTRLA = ((_usart)->CTRLA & ~USART_TXCINTLVL_gm) | _txdIntLevel)
+
 #else // XMEGA
 
 #define BITCNT TCNT1

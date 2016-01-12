@@ -127,14 +127,15 @@ void EVENT_USB_Device_ControlRequest(void)
   CDC_Device_ProcessControlRequest(&VirtualSerial2_CDC_Interface);
 }
 
-/*
+
 void EVENT_CDC_Device_LineEncodingChanged(USB_ClassInfo_CDC_Device_t* const CDCInterfaceInfo) {
 
-  if (CDCInterfaceInfo->Config.ControlInterfaceNumber == INTERFACE_ID_CDC1_CCI) {
-  } else if (CDCInterfaceInfo->Config.ControlInterfaceNumber == INTERFACE_ID_CDC2_CCI) {
+  // only PIM interface might change baudrate
+  if (CDCInterfaceInfo->Config.ControlInterfaceNumber == INTERFACE_ID_CDC2_CCI) {
+    PIM_setBaud( CDCInterfaceInfo->State.LineEncoding.BaudRateBPS );
   }
   
 }
-*/
+
 
 #endif

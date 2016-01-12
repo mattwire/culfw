@@ -10,6 +10,11 @@ typedef enum {
   REG_ETHERNET_IP4_NETMASK,
   REG_ETHERNET_IP4_GATEWAY,
   REG_ETHERNET_IP4_DNS,
+  REG_PIM_BAUD,
+  REG_PIM_FORMAT,
+
+  // insert new id here only 
+  
   REG_CRC = 0xff,
 } RID_t;
 

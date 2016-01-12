@@ -34,6 +34,8 @@ Zudem kann man über CUNX (ttyACM0) das Modul steuern, flashen etc:
 
 *pb* - Pigator Bootload (so unterstützt)
 
+*ps* - speichern der Baudrate (wie über ttyACM1 gesetzt) bei seriellen/RS485 PIM 
+
 ##Firmware update
 
 ###Bootloader starten
