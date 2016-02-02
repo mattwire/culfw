@@ -84,6 +84,8 @@
 #define PIG_RESET_PIN         PIN2_bm
 #define PIG_BSEL_PORT         PORTB
 #define PIG_BSEL_PIN          PIN1_bm
+#define PIG_RTS_PORT          PORTB
+#define PIG_RTS_PIN           PIN3_bm
 
 #define CUL_HW_REVISION       "CCD_V2"
 
