@@ -19,8 +19,8 @@ void zwave_doSend(uint8_t *msg, uint8_t hblen);
 uint8_t zwave_on = 0;
 uint8_t zwave_drate;
 uint8_t zwave_hcid[5];  // HomeId (4byte) + CtrlNodeId (1byte)
-uint8_t sMsg[MAX_ZWAVE_MSG];
-uint32_t sStamp;
+uint8_t zwave_sMsg[MAX_ZWAVE_MSG], zwave_ackState=0, zwave_sLen;
+uint32_t zwave_sStamp;
 
 // See also: ZAD-12837-1, ITU-G.9959
 /*
@@ -33,8 +33,6 @@ dRate:
 26000000/(2^28)*(256+147)*(2^10) = 39970
 26000000/(2^28)*(256+248)*(2^11) = 99975
 26000000/(2^28)*(256+131)*(2^ 9) = 19192
-26000000/(2^28)*(256+131)*(2^ 8) =  9596
-26000000/(2^28)*(256+131)*(2^ 7) =  4798
 
 deviation:
 26000000/(2^17)*(8+5)*(2^3) = 20629.8
@@ -234,6 +232,9 @@ rf_zwave_task(void)
 
   if(!zwave_on)
     return;
+  if(zwave_ackState && ticks > zwave_sStamp)
+    return zwave_doSend(zwave_sMsg, zwave_sLen);
+
   if(!bit_is_set( CC1100_IN_PORT, CC1100_IN_PIN ))
     return;
 
@@ -302,14 +303,15 @@ rf_zwave_task(void)
     //DC('C'); DNL();
   }
 
-  if(zwave_on == 'r' && isOk &&
-     ((zwave_drate == DRATE_100k && len > 11) ||
-      (zwave_drate != DRATE_100k && len > 10))) { // ACK
+  if(zwave_on=='r' && isOk && (msg[5]&3) == 3 && zwave_ackState) // got ACK
+    zwave_ackState = 0;
+
+  if(zwave_on=='r' && isOk && (msg[5]&0x40)) { // need to ACK
     my_delay_ms(10); // unsure
 
     msg[8] = msg[4]; // src -> target
     msg[4] = zwave_hcid[4]; // src == ctrlId
-    msg[5] = 0x03; // ??
+    msg[5] = 0x03;
 
     if(zwave_drate == DRATE_100k) {
       msg[7] = 11;        // Len
@@ -339,26 +341,46 @@ void
 zwave_doSend(uint8_t *msg, uint8_t hblen)
 {
   LED_ON();
-  cc1100_writeReg(CC1100_PKTLEN, zwave_drate == DRATE_9600 ? hblen+1 : hblen);
-  ccTX();       // Issues SIDLE, calibrating
 
+  if (zwave_drate == DRATE_9600) {
+    cc1100_writeReg(CC1100_MDMCFG2, 0x14);       // No preamble, no manchaster,
+    cc1100_writeReg(CC1100_PKTLEN,  2*hblen+19); // we do all this by hand.
+
+  } else {
+    cc1100_writeReg(CC1100_PKTLEN, hblen);
+  }
+  
+  ccTX();       // Issues SIDLE, calibrating
   CC1100_ASSERT;
   cc1100_sendbyte(CC1100_WRITE_BURST | CC1100_TXFIFO);
-  for(uint8_t i = 0; i < hblen; i++) {
-    uint8_t d = msg[i];
-    if(zwave_drate != DRATE_9600)
-      d ^= 0xff;
-    cc1100_sendbyte(d);
-  }
+  
+  if(zwave_drate == DRATE_9600) {
+    for(uint8_t i = 0; i < 15; i++) {
+      cc1100_sendbyte(0x66);  // preamble 0x55; manchester code = 0x6666
+    }
+    cc1100_sendbyte(0xaa);    // sync 0xf0; manchester code = 0xaa55
+    cc1100_sendbyte(0x55);    //
 
-  if(zwave_drate == DRATE_9600) { // Send EOF. Does not work.
-    cc1100_writeReg(CC1100_FIFOTHR, 15 );       // alert when TXBUFFER empty
-    while(bit_is_set(CC1100_IN_PORT, CC1100_IN_PIN))
-      ;
-    cc1100_sendbyte(CC1100_WRITE_BURST|CC1100_MDMCFG2);
-    cc1100_sendbyte(0x0e);
-    cc1100_sendbyte(CC1100_WRITE_BURST | CC1100_TXFIFO);
+    for(uint8_t i = 0; i < hblen; i++) {
+      uint8_t d = msg[i], m;
+      m  = (d & 0x80) ? 0x80 : 0x40;    // manchester encoding
+      m += (d & 0x40) ? 0x20 : 0x10;
+      m += (d & 0x20) ? 0x08 : 0x04;
+      m += (d & 0x10) ? 0x02 : 0x01;
+      cc1100_sendbyte(m);
+      m  = (d & 0x08) ? 0x80 : 0x40;
+      m += (d & 0x04) ? 0x20 : 0x10;
+      m += (d & 0x02) ? 0x08 : 0x04;
+      m += (d & 0x01) ? 0x02 : 0x01;
+      cc1100_sendbyte(m);
+    }
     cc1100_sendbyte(0x00);
+    cc1100_sendbyte(0x00);
+
+  } else {
+    for(uint8_t i = 0; i < hblen; i++)
+      cc1100_sendbyte(msg[i] ^ 0xff);
+ 
   }
 
   CC1100_DEASSERT;
@@ -367,12 +389,20 @@ zwave_doSend(uint8_t *msg, uint8_t hblen)
     ;
   cc1100_writeReg(CC1100_PKTLEN, 0xff);
   if(zwave_drate == DRATE_9600) {
-    cc1100_writeReg(CC1100_FIFOTHR, 0x01);
     cc1100_writeReg(CC1100_MDMCFG2, 0x1e);
   }
 
   zccRX();
   LED_OFF();
+
+  if(msg[5] & 0x40) {   // ackReq
+    zwave_sStamp = ticks + 6; // 6/125 = 48ms
+    if(++zwave_ackState > 1) {
+      DC('z'); DC('r'); DH2(zwave_ackState); DNL();
+    }
+    if(zwave_ackState >= 3)
+      zwave_ackState = 0;
+  }
 }
 
 void
@@ -384,8 +414,9 @@ zwave_func(char *in)
     rf_zwave_init();
 
   } else if(in[1] == 's') {         // Send
-    uint8_t hblen = fromhex(in+2, sMsg, MAX_ZWAVE_MSG);
-    zwave_doSend(sMsg, hblen);
+    zwave_ackState = 0;
+    zwave_sLen = fromhex(in+2, zwave_sMsg, MAX_ZWAVE_MSG);
+    zwave_doSend(zwave_sMsg, zwave_sLen);
 
   } else if(in[1] == 'i') {         // set homeId and ctrlId
     if(in[2]) {
