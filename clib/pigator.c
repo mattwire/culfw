@@ -108,7 +108,7 @@ void pig_serialfwd_init(void) {
   /* PIN2 (RXD0) as input. */
   PIG_UART_PORT.DIRCLR = PIN2_bm;
   
-  mySerial_Init(&USART, Pigator_Module->Baud);
+  mySerial_Init(&USART, Pigator_Module->Baud, Pigator_Module->Coding);
   USART_RxdInterruptLevel_Set(&USART, USART_RXCINTLVL_LO_gc);
 
   RingBuffer_InitBuffer(&toPIM_Buffer, toPIM_Buffer_Data, USART_BUF_SIZE);
@@ -360,10 +360,13 @@ void pigator_init(void) {
     PIG_RTS_PORT.OUTCLR = PIG_RTS_PIN;
   };
 #endif
+
+  Pigator_Module->Coding = USART_CHSIZE_8BIT_gc; // 8N1
   
   // if baudrate may be flexable - read last given value from registry
   if (Pigator_Module->flexBaud) {
     registry_get( REG_PIM_BAUD, &(Pigator_Module->Baud));
+    registry_get( REG_PIM_FORMAT, &(Pigator_Module->Coding));
   } 
 
   pig_mod_init     = Pigator_Module->cb_mod_init;
@@ -467,11 +470,12 @@ ISR(PIG_TXC_vect) {
     PIG_RTS_PORT.OUTCLR = PIG_RTS_PIN;
 }
 
-void PIM_setBaud(uint32_t baud) {
+void PIM_setBaud(uint32_t baud, uint8_t format) {
   if (baud && Pigator_Module && Pigator_Module->flexBaud) {
 
     if (baud != Pigator_Module->Baud) {
       Pigator_Module->Baud = baud;
+      Pigator_Module->Coding = format;
 
       //      DS_P(PSTR("Setting PIM to ")); DU(baud,0); DS_P(PSTR(" baud\n\r"));
       //      registry_set( REG_PIM_BAUD, &baud, 4);

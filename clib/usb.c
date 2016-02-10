@@ -129,10 +129,43 @@ void EVENT_USB_Device_ControlRequest(void)
 
 
 void EVENT_CDC_Device_LineEncodingChanged(USB_ClassInfo_CDC_Device_t* const CDCInterfaceInfo) {
+  uint8_t ConfigMask = 0;
 
   // only PIM interface might change baudrate
   if (CDCInterfaceInfo->Config.ControlInterfaceNumber == INTERFACE_ID_CDC2_CCI) {
-    PIM_setBaud( CDCInterfaceInfo->State.LineEncoding.BaudRateBPS );
+    
+    switch (CDCInterfaceInfo->State.LineEncoding.ParityType) {
+    case CDC_PARITY_Odd:
+      ConfigMask |= USART_PMODE_ODD_gc;
+      break;
+    case CDC_PARITY_Even:
+      ConfigMask |= USART_PMODE_EVEN_gc;
+      break;
+    }
+    
+    if (CDCInterfaceInfo->State.LineEncoding.CharFormat == CDC_LINEENCODING_TwoStopBits)
+      ConfigMask |= 0x8;
+    
+    switch (CDCInterfaceInfo->State.LineEncoding.DataBits) {
+    case 5:
+      ConfigMask |= USART_CHSIZE_5BIT_gc;
+      break;
+    case 6:
+      ConfigMask |= USART_CHSIZE_6BIT_gc;
+      break;
+    case 7:
+      ConfigMask |= USART_CHSIZE_7BIT_gc;
+      break;
+    case 8:
+      ConfigMask |= USART_CHSIZE_8BIT_gc;
+      break;
+    case 9:
+      ConfigMask |= USART_CHSIZE_9BIT_gc;
+      break;
+    }
+    
+    PIM_setBaud( CDCInterfaceInfo->State.LineEncoding.BaudRateBPS, ConfigMask );
+    
   }
   
 }

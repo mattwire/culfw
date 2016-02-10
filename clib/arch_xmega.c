@@ -212,7 +212,7 @@ void setup_timer(void) {
 void setup_io(void) {
 }
 
-void mySerial_Init(USART_t* const USART, const uint32_t BaudRate) {
+void mySerial_Init(USART_t* const USART, const uint32_t BaudRate, uint8_t Coding) {
   int8_t bscale = 4;
   uint16_t bsel  = 12;
 
@@ -288,4 +288,5 @@ void mySerial_Init(USART_t* const USART, const uint32_t BaudRate) {
   }
   
   USART_Baudrate_Set(USART, bsel, bscale);
+  USART->CTRLC = Coding;
 }

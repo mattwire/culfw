@@ -10,7 +10,7 @@ void pigator_stack_func(char *in);
 
 void toPIMBuffer(uint8_t in);
 
-void PIM_setBaud(uint32_t baud);
+void PIM_setBaud(uint32_t baud, uint8_t format);
 
 typedef struct {
   char     Magic[10];
@@ -21,6 +21,7 @@ typedef struct {
   void(* cb_mod_bootload)(void);
   uint8_t  hasRTS;
   uint8_t  flexBaud;
+  uint8_t  Coding;
 } Pigator_Module_t;
 
 #endif

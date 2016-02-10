@@ -42,7 +42,7 @@ void my_delay_ms( uint16_t d );
 #define PININT_ON CC1100_IN_PORT.CC1100_IN_INTMASK = CC1100_IN_PIN
 #define PININT_OFF CC1100_IN_PORT.CC1100_IN_INTMASK = 0
 
-void mySerial_Init(USART_t* const USART, const uint32_t BaudRate);
+void mySerial_Init(USART_t* const USART, const uint32_t BaudRate, uint8_t Coding);
 
 #define USART_Baudrate_Set(_usart, _bselValue, _bScaleFactor)                  \
 	(_usart)->BAUDCTRLA =(uint8_t)_bselValue;                              \
