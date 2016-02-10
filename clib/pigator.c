@@ -391,7 +391,8 @@ void pigator_func(char *in) {
       DS( Pigator_Module->Magic );
       if (Pigator_Module->flexBaud) {
 	DS_P(PSTR(" @ "));
-	DU(Pigator_Module->Baud,0);
+	DU(Pigator_Module->Baud,0); DC('x');
+	DH2(USART.CTRLC);
       }
     } else {
       DS( (char *)EEP_MAGIC );
@@ -403,7 +404,7 @@ void pigator_func(char *in) {
   } else if (in[1] == 's') {  // store baudrate
     if (Pigator_Module && Pigator_Module->Baud)
       registry_set( REG_PIM_BAUD, &(Pigator_Module->Baud), 4);
-      registry_set( REG_PIM_FORMAT, &(USART.CTRLC), 1);
+      registry_set( REG_PIM_FORMAT, &(Pigator_Module->Coding), 1);
   } else if (in[1] == 'b') {  // call modules bootloader
     if (pig_mod_bootload)
       pig_mod_bootload();
@@ -456,8 +457,10 @@ ISR(PIG_DRE_vect) {
     
   } else {
     
-    if (Pigator_Module && Pigator_Module->hasRTS)
+    if (Pigator_Module && Pigator_Module->hasRTS) {
+      USART.CTRLB &= ~USART_RXEN_bm;
       PIG_RTS_PORT.OUTSET = PIG_RTS_PIN;
+    }
     
     Serial_SendByte(&USART, RingBuffer_Remove(&toPIM_Buffer));
     
@@ -468,16 +471,19 @@ ISR(PIG_TXC_vect) {
   USART_TxdInterruptLevel_Set(&USART, USART_TXCINTLVL_OFF_gc);
   if ((Pigator_Module && Pigator_Module->hasRTS) && RingBuffer_IsEmpty(&toPIM_Buffer))
     PIG_RTS_PORT.OUTCLR = PIG_RTS_PIN;
+
+  USART.CTRLB |= USART_RXEN_bm;
 }
 
 void PIM_setBaud(uint32_t baud, uint8_t format) {
   if (baud && Pigator_Module && Pigator_Module->flexBaud) {
 
-    if (baud != Pigator_Module->Baud) {
+    if (baud != Pigator_Module->Baud || Pigator_Module->Coding != format) {
       Pigator_Module->Baud = baud;
       Pigator_Module->Coding = format;
 
       //      DS_P(PSTR("Setting PIM to ")); DU(baud,0); DS_P(PSTR(" baud\n\r"));
+      //      DS_P(PSTR("Setting PIM to ")); DH2(format); DS_P(PSTR(" coding\n\r"));
       //      registry_set( REG_PIM_BAUD, &baud, 4);
       
       if (pig_mod_init)
