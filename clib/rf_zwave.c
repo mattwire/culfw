@@ -42,6 +42,12 @@ freq:
 26000000/(2^16)*0x216666 = 868399.841
 26000000/(2^16)*0x2174ad = 869849.884
 26000000/(2^16)*0x216699 = 868420.074
+
+Msg length in bits for 8 bytes payload:
+9600: 10+2+9+8+1=30 bytes -> 25ms
+40k : 10+2+9+8+1=30 bytes ->  6ms
+100k: 40+2+9+8+2=61 bytes -> 4.9ms
+
 */
 
 
@@ -306,8 +312,9 @@ rf_zwave_task(void)
   if(zwave_on=='r' && isOk && (msg[5]&3) == 3 && zwave_ackState) // got ACK
     zwave_ackState = 0;
 
-  if(zwave_on=='r' && isOk && (msg[5]&0x40)) { // need to ACK
-    my_delay_ms(10); // unsure
+  if(zwave_on=='r' && isOk && (msg[5]&0x40) &&  // ackReq
+     ((msg[5]&0x80) == 0)) {                    // not routed
+    my_delay_ms(10); // Tested with 1,5,10,15
 
     msg[8] = msg[4]; // src -> target
     msg[4] = zwave_hcid[4]; // src == ctrlId

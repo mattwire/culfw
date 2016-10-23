@@ -231,6 +231,15 @@ Pigator_Module_t modules[] = {
   },
 
   {
+    .Magic           = "S0X2",
+    .Baud            = 38400,
+    .cb_mod_init     = pig_serialfwd_init,
+    .cb_mod_task     = pig_serialfwd_task,
+    .cb_mod_reset    = pig_reset_low,
+    .cb_mod_bootload = pig_bsel_low_bootload,
+  },
+
+  {
     .Magic           = "ESP8266",
     .Baud            = 9600,
     .cb_mod_init     = pig_serialfwd_init,

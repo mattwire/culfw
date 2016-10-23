@@ -615,6 +615,11 @@ RfAnalyze_Task(void)
 
     checkForRepeatedPackage(&datatype, b);
 
+#if defined(HAS_RF_ROUTER) && defined(HAS_FHT_80b)
+    if(datatype == TYPE_FHT && rf_router_target && !fht_hc0) // Forum #50756
+      packetCheckValues.packageOK = 0;
+#endif
+
     if(packetCheckValues.packageOK) {
       DC(datatype);
       if(nibble)
