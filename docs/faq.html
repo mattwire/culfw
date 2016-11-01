@@ -1,0 +1,47 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<title>Home of culfw</title>
+
+  <style type="text/css">
+    body   { background-color: #FFFFE7;}
+    #left  { position:absolute; top:20px; left:20px; width:140px; }
+    #right { position:absolute; top:20px; left:180px; bottom:20px; right:10px; }
+    body>div#left { position:fixed; }
+    h3,h4 {     color:#52865D; line-height:1.3;
+             margin-top:1.5em; font-family:Arial,Sans-serif; }
+    div#block { border:1px solid gray; background: #F8F8E0; padding:0.7em; }
+    div#dist { padding-top:0.3em; }
+    a {  color: #278727; }
+  </style>
+
+</head>
+
+
+<body>
+
+  <div id="left">
+    <img src="culfw.png">
+  </div>
+
+  <div id="right">
+
+  <h3>CUL FAQ</h3>
+
+  <a name="faq1"></a>
+  <h4>1. My CUL was initialized with X21 to receive data  but there is no
+  output. I am sure that there is traffic on air.  CUL responds as expected to
+  other commands like V. Is my CUL defect?</h4>
+
+  <ul>
+    Please check the response to command <code>C35</code>. Reception mode is
+    turned on if the return value is <code>13</code>. If reception mode is
+    enabled but nothing is received, the EEPROM data is probably corrupt. You
+    can reinitialize the EEPROM data with the default setting from program code
+    with the command e (which will result in a reboot of the CUL).
+  </ul>
+
+</body>
+</html>
