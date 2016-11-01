@@ -112,7 +112,7 @@ tx_init(void)
   CLEAR_BIT( CC1100_IN_DDR,   CC1100_IN_PIN);
   SET_BIT( CC1100_EICR, CC1100_ISC);  // Any edge of INTx generates an int.
 
-  credit_10ms = MAX_CREDIT/2;
+  //credit_10ms = MAX_CREDIT/2;
 
   for(int i = 1; i < RCV_BUCKETS; i ++)
     bucket_array[i].state = STATE_RESET;

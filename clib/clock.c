@@ -181,8 +181,9 @@ Minute_Task(void)
     LED_TOGGLE();
 #endif
 
-  if (credit_10ms < MAX_CREDIT) // 10ms/1s == 1% -> allowed talk-time without CD
-    credit_10ms += 1;
+  /*if (credit_10ms < MAX_CREDIT) // 10ms/1s == 1% -> allowed talk-time without CD
+    credit_10ms += 1;*/
+  credit_10ms = MAX_CREDIT;
 
 #ifdef HAS_ONEWIRE
   // if HMS Emulation is on, check the HMS timer
