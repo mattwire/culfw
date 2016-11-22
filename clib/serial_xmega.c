@@ -27,7 +27,7 @@ void uart_init(unsigned int baudrate) {
   /* PC2 (RXD0) as input. */
   UART_PORT.DIRCLR = PIN2_bm;
   
-  mySerial_Init(&USART, baudrate);
+  mySerial_Init(&USART, baudrate, USART_CHSIZE_8BIT_gc);
   USART_RxdInterruptLevel_Set(&USART, USART_RXCINTLVL_LO_gc);
 
 }

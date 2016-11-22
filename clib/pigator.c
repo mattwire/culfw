@@ -251,6 +251,7 @@ Pigator_Module_t modules[] = {
   {
     .Magic           = "TPUART",
     .Baud            = 19200,
+    .Coding          = USART_CHSIZE_8BIT_gc | USART_PMODE_EVEN_gc,
     .cb_mod_init     = pig_serialfwd_init,
     .cb_mod_task     = pig_serialfwd_task,
     .cb_mod_reset    = NULL,
@@ -370,7 +371,8 @@ void pigator_init(void) {
   };
 #endif
 
-  Pigator_Module->Coding = USART_CHSIZE_8BIT_gc; // 8N1
+  if (!Pigator_Module->Coding)
+    Pigator_Module->Coding = USART_CHSIZE_8BIT_gc; // 8N1
   
   // if baudrate may be flexable - read last given value from registry
   if (Pigator_Module->flexBaud) {
