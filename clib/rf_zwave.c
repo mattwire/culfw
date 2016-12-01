@@ -8,7 +8,11 @@
 #include "rf_zwave.h"
 #include "cc1100.h"
 
-#define MAX_ZWAVE_MSG 64
+#ifdef CUL_V4
+#define MAX_ZWAVE_MSG 64        // 1024k SRAM is not enough: no SEC for CUL_V4
+#else
+#define MAX_ZWAVE_MSG (8+158+2) // 158 == aMacMaxMSDUSizeR3 (G.9959)
+#endif
 
 void zwave_doSend(uint8_t *msg, uint8_t hblen);
 

@@ -397,6 +397,7 @@ analyze_TX3(bucket_t *b)
   return 1;
 }
 #endif
+
 #ifdef HAS_IT
 uint8_t analyze_it(bucket_t *b)
 {
@@ -409,6 +410,7 @@ uint8_t analyze_it(bucket_t *b)
   return 1;
 }
 #endif
+
 #ifdef HAS_TCM97001
 uint8_t analyze_tcm97001(bucket_t *b)
 {
@@ -422,6 +424,7 @@ uint8_t analyze_tcm97001(bucket_t *b)
   return 1;
 }
 #endif
+
 #ifdef HAS_REVOLT
 uint8_t analyze_revolt(bucket_t *b)
 {
@@ -470,6 +473,7 @@ RfAnalyze_Task(void)
   bucket_t *b;
 
   if(lowtime) {
+#ifndef NO_RF_DEBUG
     if(tx_report & REP_LCDMON) {
 #ifdef HAS_LCD
       lcd_txmon(hightime, lowtime);
@@ -489,6 +493,7 @@ RfAnalyze_Task(void)
       DC('r'); if(tx_report & REP_BINTIME) DC(hightime);
       DC('f'); if(tx_report & REP_BINTIME) DC(lowtime);
     }
+#endif // NO_RF_DEBUG
     lowtime = 0;
   }
 
@@ -635,6 +640,7 @@ RfAnalyze_Task(void)
 
   }
 
+#ifndef NO_RF_DEBUG
   if(tx_report & REP_BITS) {
 
     DC('p');
@@ -659,6 +665,7 @@ RfAnalyze_Task(void)
     DNL();
 
   }
+#endif
 
   b->state = STATE_RESET;
   bucket_nrused--;
@@ -699,8 +706,10 @@ ISR(BITINT)
   BITMAX = TWRAP;                        // Wrap Timer
   BITCNT=tmp;                            // reinitialize timer to measure times > SILENCE
 #endif
+#ifndef NO_RF_DEBUG
   if(tx_report & REP_MONITOR)
     DC('.');
+#endif
 
   if(bucket_array[bucket_in].state < STATE_COLLECT ||
      bucket_array[bucket_in].byteidx < 2) {    // false alarm
@@ -711,8 +720,10 @@ ISR(BITINT)
 
   if(bucket_nrused+1 == RCV_BUCKETS) {   // each bucket is full: reuse the last
 
+#ifndef NO_RF_DEBUG
     if(tx_report & REP_BITS)
       DS_P(PSTR("BOVF\r\n"));            // Bucket overflow
+#endif
 
     reset_input();
 
