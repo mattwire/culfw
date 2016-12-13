@@ -306,6 +306,15 @@ Pigator_Module_t modules[] = {
     .cb_mod_bootload = NULL,
   },
 
+  {
+    .Magic           = "HMUART",
+    .Baud            = 115200,
+    .cb_mod_init     = pig_serialfwd_init,
+    .cb_mod_task     = pig_serialfwd_task,
+    .cb_mod_reset    = pig_reset_low,
+    .cb_mod_bootload = NULL,
+  },
+
 #endif
   
   { .Magic        = "\x00" } // EOL
