@@ -120,7 +120,7 @@ tx_init(void)
   SET_BIT( CC1100_EICR, CC1100_ISC);
 #endif
 
-  credit_10ms = MAX_CREDIT/2;
+  //credit_10ms = MAX_CREDIT/2;
 
   for(int i = 1; i < RCV_BUCKETS; i ++)
     bucket_array[i].state = STATE_RESET;
